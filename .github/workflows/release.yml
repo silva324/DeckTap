@@ -114,10 +114,10 @@ jobs:
         run: ./scripts/package-windows.sh
 
       - name: Compile Inno Setup Windows Installer
-        shell: bash
+        shell: pwsh
         run: |
-          CLEAN_VER="${VERSION#v}"
-          "C:/Program Files (x86)/Inno Setup 6/iscc.exe" /DMyAppVersion="${CLEAN_VER}" scripts/installer.iss
+          $cleanVer = "${{ env.VERSION }}".TrimStart('v')
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" "/DMyAppVersion=$cleanVer" scripts\installer.iss
 
       - name: Upload Windows Release Assets
         uses: softprops/action-gh-release@v2
