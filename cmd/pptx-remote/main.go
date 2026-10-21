@@ -25,11 +25,14 @@ import (
 	"pptx-remote/internal/qr"
 	"pptx-remote/internal/tray"
 	"pptx-remote/internal/tunnel"
+	"pptx-remote/internal/updater"
 )
 
 var version = "0.0.1"
 
 func main() {
+	updater.CleanupOldExecutables()
+
 	if len(os.Args) > 1 && os.Args[1] == "doctor" {
 		os.Exit(doctor(os.Args[2:]))
 	}

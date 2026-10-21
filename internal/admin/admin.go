@@ -36,12 +36,13 @@ type View struct {
 }
 
 type Server struct {
-	ln          net.Listener
-	srv         *http.Server
-	secret      string
-	view        func() View
-	reset       func()
-	applyUpdate func() error
+	ln           net.Listener
+	srv          *http.Server
+	secret       string
+	view         func() View
+	reset        func()
+	applyUpdate  func() error
+	manualUpdate func() error
 }
 
 func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server, error) {
@@ -53,12 +54,17 @@ func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server
 	if len(applyUpdate) > 0 {
 		updateFn = applyUpdate[0]
 	}
-	s := &Server{ln: ln, secret: e2ee.B64.EncodeToString(e2ee.RandomBytes(24)), view: view, reset: reset, applyUpdate: updateFn}
+	var manualFn func() error
+	if len(applyUpdate) > 1 {
+		manualFn = applyUpdate[1]
+	}
+	s := &Server{ln: ln, secret: e2ee.B64.EncodeToString(e2ee.RandomBytes(24)), view: view, reset: reset, applyUpdate: updateFn, manualUpdate: manualFn}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+s.secret+"/", s.page)
 	mux.HandleFunc("/"+s.secret+"/reset", s.doReset)
 	mux.HandleFunc("/"+s.secret+"/status", s.apiStatus)
 	mux.HandleFunc("/"+s.secret+"/update/apply", s.doUpdateApply)
+	mux.HandleFunc("/"+s.secret+"/update/manual", s.doUpdateManual)
 	s.srv = &http.Server{Handler: s.guard(mux), ReadHeaderTimeout: 5 * time.Second}
 	go s.srv.Serve(ln)
 	return s, nil
@@ -110,6 +116,27 @@ func (s *Server) doUpdateApply(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if s.applyUpdate != nil {
 		err = s.applyUpdate()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
+func (s *Server) doUpdateManual(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "http://"+s.ln.Addr().String() && o != "null" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	var err error
+	if s.manualUpdate != nil {
+		err = s.manualUpdate()
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
@@ -428,6 +455,29 @@ body {
   white-space: pre-wrap;
   user-select: text;
 }
+.update-progress-box {
+  margin: 10px 0 12px;
+}
+.update-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.update-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #38bdf8);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.update-progress-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cyan);
+}
 .update-btn-row {
   display: flex;
   gap: 8px;
@@ -488,13 +538,21 @@ body {
     <div class="update-title" id="update-title">DeckTap update ready</div>
     <div class="update-sub" id="update-sub">A newer version is ready to install. Would you like to update?</div>
     
+    <div id="update-progress-box" class="update-progress-box hidden">
+      <div class="update-progress-track">
+        <div class="update-progress-fill" id="update-progress-fill"></div>
+      </div>
+      <div class="update-progress-text" id="update-progress-text">Downloading update…</div>
+    </div>
+
     <div id="update-notes-box" class="update-notes-box hidden">
       <div class="update-notes-content" id="update-notes-content"></div>
     </div>
 
-    <div class="update-btn-row">
+    <div class="update-btn-row" id="update-btn-row">
       <button type="button" class="btn btn-primary" id="btn-update-now">🚀 Update Now</button>
       <button type="button" class="btn" id="btn-update-notes">Release Notes</button>
+      <button type="button" class="btn hidden" id="btn-update-manual">Manual Download</button>
       <button type="button" class="btn btn-ghost" id="btn-update-later">Later</button>
     </div>
   </div>
@@ -619,19 +677,83 @@ let updateDismissed = false;
 function renderUpdate(u) {
   const card = document.getElementById("update-card");
   if (!card) return;
-  if (!u || !u.available || updateDismissed || sessionStorage.getItem("dt_update_dismissed_" + u.latestVersion) === "1") {
+  if (!u || !u.available) {
     card.classList.add("hidden");
     return;
   }
+  const isBusy = (u.state === "downloading" || u.state === "verifying" || u.state === "applying" || u.state === "restarting");
+  if (!isBusy && (updateDismissed || sessionStorage.getItem("dt_update_dismissed_" + u.latestVersion) === "1")) {
+    card.classList.add("hidden");
+    return;
+  }
+
   activeUpdate = u;
   card.classList.remove("hidden");
   document.getElementById("update-title").textContent = (u.latestVersion || "New version") + " is available!";
   const sub = document.getElementById("update-sub");
-  if (u.assetSize > 0) {
-    const mb = (u.assetSize / (1024 * 1024)).toFixed(1);
-    sub.textContent = "A newer version is ready to install (" + mb + " MB). Would you like to update?";
+  const progressBox = document.getElementById("update-progress-box");
+  const progressFill = document.getElementById("update-progress-fill");
+  const progressText = document.getElementById("update-progress-text");
+  const btnNow = document.getElementById("btn-update-now");
+  const btnManual = document.getElementById("btn-update-manual");
+  const btnLater = document.getElementById("btn-update-later");
+  const btnDismiss = document.getElementById("btn-update-dismiss");
+
+  if (isBusy) {
+    progressBox.classList.remove("hidden");
+    btnNow.disabled = true;
+    btnLater.classList.add("hidden");
+    btnDismiss.classList.add("hidden");
+    btnManual.classList.add("hidden");
+
+    if (u.state === "downloading") {
+      const pct = u.progress || 0;
+      progressFill.style.width = pct + "%";
+      progressFill.style.background = "linear-gradient(90deg, #10b981, #38bdf8)";
+      progressText.textContent = "Downloading update… " + pct + "%";
+      btnNow.textContent = "⏳ Downloading (" + pct + "%)…";
+      sub.textContent = "Downloading the latest version in the background…";
+    } else if (u.state === "verifying") {
+      progressFill.style.width = "75%";
+      progressText.textContent = "Verifying cryptographic checksum…";
+      btnNow.textContent = "⏳ Verifying…";
+      sub.textContent = "Verifying package integrity…";
+    } else if (u.state === "applying") {
+      progressFill.style.width = "90%";
+      progressText.textContent = "Installing update files…";
+      btnNow.textContent = "⏳ Installing…";
+      sub.textContent = "Replacing executable atomically…";
+    } else if (u.state === "restarting") {
+      progressFill.style.width = "100%";
+      progressText.textContent = "✨ Restarting DeckTap…";
+      btnNow.textContent = "Restarting…";
+      sub.textContent = "Update complete! DeckTap is restarting now…";
+    }
+  } else if (u.state === "error") {
+    progressBox.classList.remove("hidden");
+    progressFill.style.width = "100%";
+    progressFill.style.background = "#ef4444";
+    progressText.textContent = "⚠️ " + (u.error || "Update encountered an error");
+    btnNow.disabled = false;
+    btnNow.textContent = "🔄 Retry Update";
+    btnManual.classList.remove("hidden");
+    btnLater.classList.remove("hidden");
+    btnDismiss.classList.remove("hidden");
+    sub.textContent = "An error occurred while updating automatically. You can retry or download manually.";
   } else {
-    sub.textContent = "A newer version is ready to install. Would you like to update?";
+    // idle
+    progressBox.classList.add("hidden");
+    btnNow.disabled = false;
+    btnNow.textContent = "🚀 Update Now";
+    btnManual.classList.add("hidden");
+    btnLater.classList.remove("hidden");
+    btnDismiss.classList.remove("hidden");
+    if (u.assetSize > 0) {
+      const mb = (u.assetSize / (1024 * 1024)).toFixed(1);
+      sub.textContent = "A newer version is ready to install (" + mb + " MB). Click Update Now to install automatically.";
+    } else {
+      sub.textContent = "A newer version is ready to install. Click Update Now to install automatically.";
+    }
   }
 
   const notesContent = document.getElementById("update-notes-content");
@@ -659,11 +781,27 @@ document.getElementById("btn-update-notes").addEventListener("click", () => {
 
 document.getElementById("btn-update-now").addEventListener("click", async () => {
   const btn = document.getElementById("btn-update-now");
-  btn.textContent = "⏳ Opening Download…";
+  btn.disabled = true;
+  btn.textContent = "⏳ Starting Update…";
   try {
-    await fetch("update/apply", { method: "POST" });
+    const res = await fetch("update/apply", { method: "POST" });
+    const data = await res.json();
+    if (!data.ok && data.error) {
+      alert("Could not start update: " + data.error);
+      btn.disabled = false;
+      btn.textContent = "🚀 Update Now";
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "🚀 Update Now";
+  }
+  refreshStatus();
+});
+
+document.getElementById("btn-update-manual").addEventListener("click", async () => {
+  try {
+    await fetch("update/manual", { method: "POST" });
   } catch {}
-  setTimeout(() => { btn.textContent = "🚀 Update Now"; }, 3500);
 });
 
 setInterval(refreshStatus, 1500);

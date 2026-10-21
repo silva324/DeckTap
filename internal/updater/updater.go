@@ -49,6 +49,8 @@ type Status struct {
 	DownloadURL  string `json:"downloadURL"`
 	AssetName    string `json:"assetName"`
 	AssetSize    int64  `json:"assetSize"`
+	State        string `json:"state,omitempty"`    // "idle", "downloading", "verifying", "applying", "restarting", "error"
+	Progress     int    `json:"progress,omitempty"` // 0-100
 	Error        string `json:"error,omitempty"`
 }
 
@@ -59,10 +61,15 @@ type Service struct {
 	currentVersion string
 	client         *http.Client
 	openURL        func(string) error
+	relaunch       func() error
+	replaceBinary  func(string, []byte) error
+	onRestart      func() error
 
-	mu          sync.RWMutex
-	status      Status
-	lastChecked time.Time
+	mu           sync.RWMutex
+	status       Status
+	lastChecked  time.Time
+	updateAsset  Asset
+	checksumsURL string
 }
 
 // OpenURL opens the specified URL in the system default web browser.
@@ -88,12 +95,34 @@ func NewService(currentVersion string, openURL func(string) error) *Service {
 		owner:          DefaultRepoOwner,
 		repo:           DefaultRepoName,
 		currentVersion: currentVersion,
-		client:         &http.Client{Timeout: 8 * time.Second},
+		client:         &http.Client{Timeout: 15 * time.Second},
 		openURL:        openURL,
 		status: Status{
 			CurrentVer: currentVersion,
+			State:      "idle",
 		},
 	}
+}
+
+// SetRestartHandler registers a callback invoked before process restart.
+func (s *Service) SetRestartHandler(fn func() error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onRestart = fn
+}
+
+// SetRelaunchHandler overrides the relaunch executor (useful for testing).
+func (s *Service) SetRelaunchHandler(fn func() error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.relaunch = fn
+}
+
+// SetReplaceBinaryHandler overrides the binary replacement routine (useful for testing).
+func (s *Service) SetReplaceBinaryHandler(fn func(string, []byte) error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.replaceBinary = fn
 }
 
 // Status returns the current cached update status.
@@ -129,17 +158,41 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 		return s.recordError(err)
 	}
 
+	var checksumsURL string
+	for _, a := range rel.Assets {
+		if strings.EqualFold(a.Name, "checksums.txt") {
+			checksumsURL = a.BrowserDownloadURL
+			break
+		}
+	}
+
 	available := IsNewer(rel.TagName, s.currentVersion)
 	matchedAsset, _ := SelectAsset(rel.Assets, runtime.GOOS, runtime.GOARCH)
+	updateAsset, _ := SelectUpdateAsset(rel.Assets, runtime.GOOS, runtime.GOARCH)
 
 	downloadURL := rel.HTMLURL
 	assetName := ""
 	var assetSize int64
-	if matchedAsset.BrowserDownloadURL != "" {
+	if updateAsset.BrowserDownloadURL != "" {
+		downloadURL = updateAsset.BrowserDownloadURL
+		assetName = updateAsset.Name
+		assetSize = updateAsset.Size
+	} else if matchedAsset.BrowserDownloadURL != "" {
 		downloadURL = matchedAsset.BrowserDownloadURL
 		assetName = matchedAsset.Name
 		assetSize = matchedAsset.Size
 	}
+
+	s.mu.Lock()
+	currentState := s.status.State
+	if currentState == "" {
+		currentState = "idle"
+	}
+	s.updateAsset = updateAsset
+	if s.updateAsset.BrowserDownloadURL == "" {
+		s.updateAsset = matchedAsset
+	}
+	s.checksumsURL = checksumsURL
 
 	st := Status{
 		Checked:      true,
@@ -152,9 +205,11 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 		DownloadURL:  downloadURL,
 		AssetName:    assetName,
 		AssetSize:    assetSize,
+		State:        currentState,
+		Progress:     s.status.Progress,
+		Error:        s.status.Error,
 	}
 
-	s.mu.Lock()
 	s.status = st
 	s.lastChecked = time.Now()
 	s.mu.Unlock()
@@ -183,13 +238,15 @@ func (s *Service) StartBackgroundCheck(ctx context.Context, interval time.Durati
 	}()
 }
 
-// ApplyUpdate triggers opening the download URL or release page in the default handler.
+// ApplyUpdate starts the automated self-update workflow.
 func (s *Service) ApplyUpdate() error {
+	return s.StartSelfUpdate(context.Background())
+}
+
+// OpenReleasePage opens the release page in the default web browser.
+func (s *Service) OpenReleasePage() error {
 	st := s.Status()
-	targetURL := st.DownloadURL
-	if targetURL == "" {
-		targetURL = st.ReleaseURL
-	}
+	targetURL := st.ReleaseURL
 	if targetURL == "" {
 		targetURL = fmt.Sprintf("https://github.com/%s/%s/releases", s.owner, s.repo)
 	}

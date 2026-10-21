@@ -127,10 +127,10 @@ func TestServiceCheckMock(t *testing.T) {
 		t.Fatal("expected update available")
 	}
 
-	if err := svc.ApplyUpdate(); err != nil {
+	if err := svc.OpenReleasePage(); err != nil {
 		t.Fatal(err)
 	}
-	if openedURL != st.DownloadURL {
-		t.Fatalf("expected opened URL %q, got %q", st.DownloadURL, openedURL)
+	if openedURL != "https://github.com/silva324/DeckTap/releases" {
+		t.Fatalf("expected opened release page URL, got %q", openedURL)
 	}
 }

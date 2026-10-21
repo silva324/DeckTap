@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -195,7 +196,18 @@ func (h *Host) Start(parent context.Context) error {
 	h.srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go h.srv.Serve(ln)
 
-	a, err := admin.Start(h.adminView, h.Reset, h.updater.ApplyUpdate)
+	h.updater.SetRestartHandler(func() error {
+		h.log.Info("DeckTap self-update applied; stopping host for restart...")
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			h.cancel()
+			time.Sleep(200 * time.Millisecond)
+			os.Exit(0)
+		}()
+		return nil
+	})
+
+	a, err := admin.Start(h.adminView, h.Reset, h.updater.ApplyUpdate, h.updater.OpenReleasePage)
 	if err != nil {
 		return err
 	}
