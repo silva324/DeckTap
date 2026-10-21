@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/silva324/DeckTap/compare/v0.4.0...v0.5.0) (2026-10-21)
+
+
+### Features
+
+* **app:** add quit/exit option to desktop UI and native window with Cmd+Q support ([#18](https://github.com/silva324/DeckTap/issues/18)) ([8a2efe9](https://github.com/silva324/DeckTap/commit/8a2efe92476b3c02c52946954ea8e2de813fe2a1))
+* **pointer:** query slide show window bounds directly to respect user presentation screen on multi-displays ([#20](https://github.com/silva324/DeckTap/issues/20)) ([a08da80](https://github.com/silva324/DeckTap/commit/a08da8029039a8fdc69d851f2ba9f259956ca623))
+
 ## [0.4.0](https://github.com/silva324/DeckTap/compare/v0.3.1...v0.4.0) (2026-10-21)
 
 
