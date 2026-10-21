@@ -23,6 +23,7 @@ type Sync struct {
 	log      *slog.Logger
 	interval time.Duration
 	send     func(map[string]any) error
+	version  string
 
 	pollMu      sync.Mutex // one poll at a time, so state frames are never sent out of order
 	mu          sync.Mutex
@@ -203,6 +204,7 @@ func (s *Sync) stateLocked() map[string]any {
 		"controller":   s.ctl.Name(),
 		"error":        strings.TrimPrefix(s.lastErr, "!"),
 		"decks":        st.Decks,
+		"hostVersion":  s.version,
 	}
 	if !s.showStarted.IsZero() {
 		m["showStartedAt"] = s.showStarted.UnixMilli()

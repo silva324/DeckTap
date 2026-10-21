@@ -287,6 +287,17 @@ body {
   height: 32px;
   border-radius: 8px;
 }
+.brand-version {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  letter-spacing: 0;
+  vertical-align: middle;
+}
 .badge-status {
   display: inline-flex;
   align-items: center;
@@ -454,6 +465,20 @@ body {
   margin-top: 12px;
   word-break: break-all;
 }
+.footer-links {
+  margin-top: 10px;
+  font-size: 11px;
+}
+.footer-link {
+  color: var(--cyan);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+.footer-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
 
 /* Update Card */
 .hidden { display: none !important; }
@@ -576,7 +601,7 @@ body {
         <path d="M 368 136 L 373 141 L 385 129" fill="none" stroke="#10b981" stroke-width="6" stroke-linecap="round"/>
         <path d="M 110 360 C 180 420, 332 420, 402 360" fill="none" stroke="#10b981" stroke-width="14" stroke-linecap="round"/>
       </svg>
-      DeckTap
+      DeckTap <span class="brand-version" id="brand-version">` + html.EscapeString(v.CurrentVersion) + `</span>
     </div>
     <div class="header-right">
       <div class="badge-status `)
@@ -678,6 +703,9 @@ body {
 		b.WriteString("Web App: silva324.github.io/DeckTap")
 	}
 	b.WriteString(`</div>
+  <div class="footer-links">
+    <a href="https://github.com/silva324/DeckTap" target="_blank" rel="noopener" class="footer-link" id="footer-version-link">DeckTap ` + html.EscapeString(v.CurrentVersion) + ` · GitHub Repository</a>
+  </div>
 </div>
 
 <script>
@@ -735,6 +763,13 @@ async function refreshStatus() {
 
     if (data.publicHost) {
       document.getElementById("tunnel-info").textContent = "Tunnel: " + data.publicHost;
+    }
+
+    if (data.currentVersion) {
+      const bv = document.getElementById("brand-version");
+      if (bv) bv.textContent = data.currentVersion;
+      const fv = document.getElementById("footer-version-link");
+      if (fv) fv.textContent = "DeckTap " + data.currentVersion + " · GitHub Repository";
     }
 
     // Handle update banner
