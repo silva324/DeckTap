@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -e
+
+# Automatically run the verification & lint suite before every commit
+echo "==> Running pre-commit agent verification & linter..."
+./scripts/agent-verify.sh

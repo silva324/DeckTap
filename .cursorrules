@@ -32,7 +32,8 @@ You are an expert systems and security engineer contributing to **DeckTap**. Fol
   - `feat(scope): ...` for new features (triggers MINOR version bump)
   - `fix(scope): ...` for bug fixes (triggers PATCH version bump)
   - `docs(scope): ...`, `chore(scope): ...`, `perf(scope): ...`
-- **Pre-PR Verification Checklist:**
-  1. Run `go test ./...` and `go vet ./...`.
-  2. Verify JavaScript syntax: `node -c internal/webui/static/app.js`.
-  3. Ensure no plaintext notes, passwords, or tokens are logged.
+- **Pre-Commit & Pre-PR Mandatory Linter/Verification:**
+  1. ALWAYS execute `./scripts/agent-verify.sh` (or `make verify`) before committing or opening a PR.
+  2. JavaScript syntax lint (`node -c`) MUST pass on all WebUI files.
+  3. Go formatting (`gofmt -l .`), `go vet ./...`, and `go test ./...` MUST pass.
+  4. Ensure no plaintext notes, passwords, or tokens are logged.

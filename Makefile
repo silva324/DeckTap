@@ -1,4 +1,4 @@
-.PHONY: all build build-darwin build-darwin-universal build-windows test lint doctor demo clean run verify
+.PHONY: all build build-darwin build-darwin-universal build-windows test lint doctor demo clean run verify setup-hooks
 
 BINARY_NAME=pptx-remote
 BUILD_DIR=bin
@@ -28,6 +28,11 @@ build-windows:
 
 build-all: build-darwin-universal build-windows
 
+setup-hooks:
+	git config core.hooksPath .githooks
+	chmod +x .githooks/*
+	@echo "Git hooks configured to .githooks/"
+
 verify:
 	@./scripts/agent-verify.sh
 
@@ -35,8 +40,9 @@ test:
 	go test -v ./...
 
 lint:
+	@test -z "$$(gofmt -l .)" || (echo "Unformatted Go files: $$(gofmt -l .)" && exit 1)
 	go vet ./...
-	node -c internal/webui/static/app.js internal/webui/static/crypto.js
+	node -c internal/webui/static/app.js internal/webui/static/crypto.js internal/webui/static/sw.js
 
 doctor: build-darwin
 	./$(BUILD_DIR)/$(BINARY_NAME) doctor
