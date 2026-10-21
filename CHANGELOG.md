@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/silva324/DeckTap/compare/v0.6.0...v0.6.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **session:** allow null and webclip origins for ios safari and improve mobile touch handling ([#24](https://github.com/silva324/DeckTap/issues/24)) ([0410713](https://github.com/silva324/DeckTap/commit/04107139af8cf3f503c5ab3d6716aebcc78e66f9))
+
 ## [0.6.0](https://github.com/silva324/DeckTap/compare/v0.5.0...v0.6.0) (2026-10-21)
 
 
