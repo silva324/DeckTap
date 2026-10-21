@@ -248,10 +248,10 @@ func (m *Mac) Start(ctx context.Context, from int) error {
 end tell`); err != nil {
 			return err
 		}
-	}
-	if from > 1 {
-		time.Sleep(400 * time.Millisecond) // the show window needs a moment
-		return m.Goto(ctx, from)
+		if from > 1 {
+			time.Sleep(400 * time.Millisecond) // the show window needs a moment
+			return m.Goto(ctx, from)
+		}
 	}
 	return nil
 }
