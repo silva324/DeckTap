@@ -42,7 +42,7 @@ node -c internal/webui/static/app.js internal/webui/static/crypto.js
 - **NEVER commit directly to `main`:**
   1. Always branch off `main`: `git checkout -b feat/<feature-name>` (or `fix/<bug-name>`).
   2. Implement changes with atomic, well-tested commits.
-  3. Verify locally: `go test ./...` and `node -c internal/webui/static/app.js`.
+  3. Mandatory Lint & Verification: Run `./scripts/agent-verify.sh` (or `make verify`). All linter and test checks must pass with zero errors.
   4. Push your branch: `git push -u origin feat/<feature-name>`.
   5. Open a Pull Request targeting `main` for review.
 - **Always use Conventional Commits:** Format all commit messages and PR titles strictly (`feat:`, `fix:`, `perf:`, `docs:`, `chore:`, `refactor:`) so Google's `release-please` can compute version bumps and generate changelogs automatically.

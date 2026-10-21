@@ -14,8 +14,8 @@ The `main` branch is protected. All contributions must follow the branch-and-PR 
    - Bug fixes: `git checkout -b fix/<short-name>`
    - Documentation: `git checkout -b docs/<short-name>`
    - Chores / Maintenance: `git checkout -b chore/<short-name>`
-3. Implement and test your changes.
-4. Run `./scripts/agent-verify.sh` to ensure all gates pass.
+3. Implement your changes.
+4. **Mandatory Linter & Verification Gate:** Run `./scripts/agent-verify.sh` (or `make verify`). You MUST NOT commit or open a PR until all verification gates pass cleanly (0 exit code).
 5. Push the branch: `git push -u origin <branch-name>`
 6. Create a Pull Request via `gh` CLI:
    ```bash
@@ -56,27 +56,30 @@ All commit messages and PR titles must follow [Conventional Commits](https://www
 
 ---
 
-## 3. Verification Commands for Agents
+## 3. Verification & Linting Commands for Agents
 
-Before creating any Pull Request, run the automated verification script:
+> [!IMPORTANT]
+> Running the verification script is **MANDATORY** prior to every `git commit` and Pull Request. A pre-commit Git hook is available in `.githooks/pre-commit` and should be configured via `make setup-hooks`.
+
+Run the automated verification suite:
 
 ```bash
 ./scripts/agent-verify.sh
+# or via Makefile
+make verify
 ```
 
-Or run the individual checks:
+The verification suite automatically runs all gates:
+1. **JavaScript Linter:** `node -c internal/webui/static/app.js internal/webui/static/crypto.js internal/webui/static/sw.js` (detects syntax errors, re-declarations, etc.)
+2. **Go Formatting:** `gofmt -l .` (ensures canonical formatting)
+3. **Go Vet:** `go vet ./...` (catches structural and static analysis bugs)
+4. **Go Tests:** `go test ./...` (runs unit and integration tests)
+5. **Binary Compilation:** `go build -buildvcs=false -o /dev/null ./cmd/pptx-remote`
+6. **Git Hygiene:** Ensures no `.DS_Store`, `.exe`, or release archives slip into git.
+
+To configure local git hooks automatically:
 ```bash
-# 1. Run all Go unit & integration tests
-go test ./...
-
-# 2. Run Go vet
-go vet ./...
-
-# 3. Validate JavaScript syntax
-node -c internal/webui/static/app.js internal/webui/static/crypto.js internal/webui/static/sw.js
-
-# 4. Check that binary builds cleanly
-go build -buildvcs=false -o /dev/null ./cmd/pptx-remote
+make setup-hooks
 ```
 
 ---
