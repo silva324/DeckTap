@@ -456,10 +456,35 @@
   });
 
   // ------------------------------------------------------------ Viewport & Bar Scroll Locking
-  // Ensure the page itself never scrolls, bounces, or pushes top/bottom bars off screen
+  // Dynamically sync visual viewport height so bars never get covered by mobile browser UI
+  if (window.visualViewport) {
+    const syncViewportHeight = () => {
+      const h = window.visualViewport.height;
+      document.documentElement.style.setProperty("--visual-h", `${h}px`);
+    };
+    window.visualViewport.addEventListener("resize", syncViewportHeight);
+    window.visualViewport.addEventListener("scroll", syncViewportHeight);
+    syncViewportHeight();
+  }
+
+  // Prevent rubber-band dragging of the window while preserving smooth scroll inside notes/lists
+  let touchStartY = 0;
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches && e.touches.length) {
+      touchStartY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
   document.addEventListener("touchmove", (e) => {
     const scrollable = e.target.closest(".notes, .content, .sheet-panel, .list");
     if (!scrollable) {
+      e.preventDefault();
+      return;
+    }
+    const deltaY = e.touches[0].clientY - touchStartY;
+    const isAtTop = scrollable.scrollTop <= 0 && deltaY > 0;
+    const isAtBottom = (scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight) && deltaY < 0;
+    if (isAtTop || isAtBottom) {
       e.preventDefault();
     }
   }, { passive: false });
@@ -467,6 +492,20 @@
   document.querySelectorAll(".bar, .preview, .controls, .pointer-pad-header, .pointer-pad-bar").forEach((el) => {
     el.addEventListener("touchmove", (e) => { e.preventDefault(); }, { passive: false });
   });
+
+  const notesEl = $("notes");
+  if (notesEl) {
+    notesEl.addEventListener("touchstart", () => {
+      const top = notesEl.scrollTop;
+      const total = notesEl.scrollHeight;
+      const current = top + notesEl.offsetHeight;
+      if (top === 0) {
+        notesEl.scrollTop = 1;
+      } else if (current >= total) {
+        notesEl.scrollTop = top - 1;
+      }
+    }, { passive: true });
+  }
 
   function openSheet() { $("sheet").classList.remove("hidden"); const c = $("slide-list").querySelector(".current"); if (c) c.scrollIntoView({ block: "center" }); }
   function closeSheet() { $("sheet").classList.add("hidden"); }
