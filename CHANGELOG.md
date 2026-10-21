@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/silva324/DeckTap/compare/v0.3.1...v0.4.0) (2026-10-21)
+
+
+### Features
+
+* **pointer:** disable IMU tilt by default with toggle and target slide show screen on multi-displays ([#17](https://github.com/silva324/DeckTap/issues/17)) ([b06ba69](https://github.com/silva324/DeckTap/commit/b06ba695dd10322cc1d978dc5acd52750fe25c35))
+* **updater:** implement seamless automated in-app self-updater ([#16](https://github.com/silva324/DeckTap/issues/16)) ([dbdc86a](https://github.com/silva324/DeckTap/commit/dbdc86aed97636142b29cb453543726a0a8c77dc))
+
+
+### Miscellaneous Chores
+
+* **branding:** standardize application naming strictly to DeckTap ([#14](https://github.com/silva324/DeckTap/issues/14)) ([9575462](https://github.com/silva324/DeckTap/commit/9575462eaf05c9b292d24641d0ea2562da1e0bd2))
+
 ## [0.3.1](https://github.com/silva324/DeckTap/compare/v0.3.0...v0.3.1) (2026-10-21)
 
 
