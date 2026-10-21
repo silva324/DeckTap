@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/silva324/DeckTap/compare/v0.2.0...v0.3.0) (2026-10-21)
+
+
+### Features
+
+* **pwa:** canonical GitHub Pages entry point and connection manager ([#10](https://github.com/silva324/DeckTap/issues/10)) ([fcef3c5](https://github.com/silva324/DeckTap/commit/fcef3c5130a3fc2b40a384ee7a6b04072df64714))
+
 ## [0.2.0](https://github.com/silva324/DeckTap/compare/v0.1.0...v0.2.0) (2026-10-21)
 
 
