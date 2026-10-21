@@ -1,0 +1,62 @@
+name: 🐛 Bug Report
+description: Create a report to help us improve PowerPoint Remote
+title: "fix: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please check that you are running the latest release before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: PowerPoint Remote Version
+      description: What version are you running? (Run `./pptx-remote doctor` or check menu bar)
+      placeholder: "e.g. 0.0.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS (Apple Silicon arm64)
+        - macOS (Intel amd64)
+        - Windows 11 (64-bit)
+        - Windows 10 (64-bit)
+        - Linux / Other
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Mobile Phone Browser & Device
+      description: What phone and browser did you pair with?
+      placeholder: "e.g. iPhone 15 Pro (Safari iOS 17.5) or Pixel 8 (Chrome 125)"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Describe the steps required to trigger the issue.
+      placeholder: |
+        1. Start pptx-remote
+        2. Scan QR code on mobile
+        3. Enter 4-digit PIN
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Diagnostic Doctor Output & Logs
+      description: Paste the output of `./pptx-remote doctor` or relevant terminal logs.
+      render: shell

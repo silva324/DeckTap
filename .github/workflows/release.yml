@@ -1,0 +1,201 @@
+name: Release Packages
+
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: 'Tag name to release (e.g. v0.0.1 or v0.1.0-rc.1)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark release as pre-release'
+        required: false
+        type: boolean
+        default: false
+  release:
+    types: [published, created, prereleased]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and publish (e.g. v0.0.1 or v0.1.0-rc.1)'
+        required: true
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  resolve-tag:
+    name: Resolve Target Tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.resolve.outputs.tag_name }}
+      is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
+    steps:
+      - name: Compute Tag & Prerelease Status
+        id: resolve
+        run: |
+          RAW_TAG="${{ inputs.tag_name || inputs.tag || github.event.release.tag_name }}"
+          if [ -z "$RAW_TAG" ]; then
+            echo "Error: Unable to resolve release tag name."
+            exit 1
+          fi
+          
+          IS_PRE="${{ inputs.prerelease || github.event.release.prerelease || 'false' }}"
+          if [[ "$RAW_TAG" == *"-alpha"* ]] || [[ "$RAW_TAG" == *"-beta"* ]] || [[ "$RAW_TAG" == *"-rc"* ]]; then
+            IS_PRE="true"
+          fi
+
+          echo "tag_name=${RAW_TAG}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${IS_PRE}" >> $GITHUB_OUTPUT
+          echo "Target Release: ${RAW_TAG} (Pre-release: ${IS_PRE})"
+
+  build-macos:
+    name: Build macOS Universal Assets
+    needs: resolve-tag
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.resolve-tag.outputs.tag_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Build macOS DMG and Universal Tarball
+        run: ./scripts/package-macos.sh
+
+      - name: Upload macOS Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-tag.outputs.tag_name }}
+          prerelease: ${{ needs.resolve-tag.outputs.is_prerelease == 'true' }}
+          files: |
+            dist/DeckTap-*-macOS-Universal.dmg
+            dist/DeckTap-*-macOS-Universal.tar.gz
+
+      - name: Archive Artifacts for Checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-assets
+          path: |
+            dist/DeckTap-*-macOS-Universal.dmg
+            dist/DeckTap-*-macOS-Universal.tar.gz
+          retention-days: 1
+
+  build-windows:
+    name: Build Windows Assets
+    needs: resolve-tag
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.resolve-tag.outputs.tag_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows Portable ZIP
+        shell: bash
+        run: ./scripts/package-windows.sh
+
+      - name: Compile Inno Setup Windows Installer
+        shell: bash
+        run: |
+          CLEAN_VER="${VERSION#v}"
+          "C:/Program Files (x86)/Inno Setup 6/iscc.exe" /DMyAppVersion="${CLEAN_VER}" scripts/installer.iss
+
+      - name: Upload Windows Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-tag.outputs.tag_name }}
+          prerelease: ${{ needs.resolve-tag.outputs.is_prerelease == 'true' }}
+          files: |
+            dist/DeckTap-*-windows-amd64.zip
+            dist/DeckTap-*-Setup-Windows-x64.exe
+
+      - name: Archive Artifacts for Checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-assets
+          path: |
+            dist/DeckTap-*-windows-amd64.zip
+            dist/DeckTap-*-Setup-Windows-x64.exe
+          retention-days: 1
+
+  build-linux:
+    name: Build Linux Assets
+    needs: resolve-tag
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.resolve-tag.outputs.tag_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Build Linux Tarballs
+        run: ./scripts/package-linux.sh
+
+      - name: Upload Linux Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-tag.outputs.tag_name }}
+          prerelease: ${{ needs.resolve-tag.outputs.is_prerelease == 'true' }}
+          files: |
+            dist/DeckTap-*-linux-amd64.tar.gz
+            dist/DeckTap-*-linux-arm64.tar.gz
+
+      - name: Archive Artifacts for Checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-assets
+          path: |
+            dist/DeckTap-*-linux-amd64.tar.gz
+            dist/DeckTap-*-linux-arm64.tar.gz
+          retention-days: 1
+
+  checksums:
+    name: Generate & Publish Checksums
+    needs: [resolve-tag, build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Compute SHA256 Checksums
+        run: |
+          mkdir -p release_dist
+          find artifacts -type f -exec cp {} release_dist/ \;
+          cd release_dist
+          rm -f checksums.txt
+          sha256sum * > ../checksums.txt
+          cat ../checksums.txt
+
+      - name: Upload Checksums to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-tag.outputs.tag_name }}
+          prerelease: ${{ needs.resolve-tag.outputs.is_prerelease == 'true' }}
+          files: checksums.txt

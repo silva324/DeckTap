@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f1720">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="DeckTap">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="referrer" content="no-referrer">
+  <title>DeckTap</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="conn" class="conn hidden" role="status">Reconnecting…</div>
+  <div id="toast" class="toast hidden" role="alert"></div>
+
+  <!-- No keys: scan / ended / errors -->
+  <section id="screen-msg" class="screen hidden">
+    <div class="center">
+      <img src="icon.svg" alt="" class="logo">
+      <h1 id="msg-title">Scan the QR code</h1>
+      <p id="msg-text" class="muted">Start DeckTap on your laptop and scan the QR code it shows with your phone camera.</p>
+      
+      <div class="msg-actions">
+        <button class="btn primary btn-scan-lg" id="btn-scan-qr" type="button">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <rect x="7" y="7" width="10" height="10" rx="1.5"/>
+          </svg>
+          <span>Open Camera & Scan</span>
+        </button>
+        <button class="btn-link" id="btn-manual-toggle" type="button">Or enter pairing link manually</button>
+      </div>
+
+      <div id="manual-link-container" class="manual-link-container hidden">
+        <div class="manual-input-row">
+          <input type="text" id="manual-link-input" placeholder="Paste link or #token.key" autocomplete="off" spellcheck="false">
+          <button class="btn primary" id="btn-manual-submit" type="button">Pair</button>
+        </div>
+      </div>
+
+      <button class="btn primary hidden" id="msg-retry">Try again</button>
+    </div>
+  </section>
+
+  <!-- Screen PIN: Anti-Shoulder-Surfing PIN Verification -->
+  <section id="screen-pin" class="screen hidden">
+    <div class="center pin-center">
+      <div class="pin-shield">🛡️</div>
+      <h1>Security Verification</h1>
+      <p class="muted">Enter the 4-digit PIN code displayed on the presenter's laptop screen.</p>
+      
+      <div class="pin-dots">
+        <div class="pin-digit" id="pd-0">-</div>
+        <div class="pin-digit" id="pd-1">-</div>
+        <div class="pin-digit" id="pd-2">-</div>
+        <div class="pin-digit" id="pd-3">-</div>
+      </div>
+
+      <div class="keypad">
+        <button class="key-btn" data-key="1">1</button>
+        <button class="key-btn" data-key="2">2</button>
+        <button class="key-btn" data-key="3">3</button>
+        <button class="key-btn" data-key="4">4</button>
+        <button class="key-btn" data-key="5">5</button>
+        <button class="key-btn" data-key="6">6</button>
+        <button class="key-btn" data-key="7">7</button>
+        <button class="key-btn" data-key="8">8</button>
+        <button class="key-btn" data-key="9">9</button>
+        <button class="key-btn tool" id="pin-clear">C</button>
+        <button class="key-btn" data-key="0">0</button>
+        <button class="key-btn backspace" id="pin-back">⌫</button>
+      </div>
+
+      <div id="pin-status" class="pin-status-text"></div>
+    </div>
+  </section>
+
+  <!-- Connecting / handshake -->
+  <section id="screen-connecting" class="screen hidden">
+    <div class="center">
+      <div class="big-icon"><svg class="lock-ic big" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z"/></svg></div>
+      <h1>Connecting securely…</h1>
+      <p class="muted hint">End-to-end encrypted with a key that never leaves your phone and laptop.</p>
+    </div>
+  </section>
+
+  <!-- Paired, show not running -->
+  <section id="screen-ready" class="screen hidden">
+    <header class="bar">
+      <div class="brand"><img src="icon.svg" alt=""> DeckTap</div>
+      <span class="lock" title="End-to-end encrypted"><svg class="lock-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z"/></svg> E2EE</span>
+    </header>
+    <div class="content center">
+      <div class="ready-card">
+        <button class="deck-badge" id="btn-decks-ready" title="Switch Presentation">
+          <span id="ready-name">—</span>
+          <span class="chevron">▾</span>
+        </button>
+        <div class="muted" id="ready-meta"></div>
+      </div>
+      <button class="btn primary big" id="btn-start">▶ Start slide show</button>
+      <div class="row">
+        <label for="start-at" class="muted">From slide</label>
+        <input id="start-at" type="number" min="1" value="1" inputmode="numeric">
+      </div>
+      <p class="muted small" id="ready-hint">You can also start the show on the laptop: the phone follows automatically.</p>
+    </div>
+  </section>
+
+  <!-- Presenter -->
+  <section id="screen-show" class="screen hidden">
+    <header class="bar show-bar">
+      <button class="icon-btn" id="btn-menu" aria-label="Menu">☰</button>
+      <button class="deck-strip" id="btn-decks-show" title="Switch Presentation">
+        <span id="show-deck-title">Deck</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="pos"><span id="pos-cur">–</span><span class="muted">/<span id="pos-total">–</span></span></div>
+      <button class="timer" id="timer" aria-label="Elapsed time, tap to reset">00:00</button>
+      <span class="clock muted" id="clock"></span>
+    </header>
+    <div class="progress"><div id="progress-bar"></div></div>
+    <div id="status-line" class="status-line hidden"></div>
+    <div class="preview">
+      <div class="preview-text">
+        <div class="slide-title" id="slide-title"></div>
+        <div class="next muted small" id="next-title"></div>
+      </div>
+      <span class="lock" title="End-to-end encrypted"><svg class="lock-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z"/></svg></span>
+    </div>
+    <article id="notes" class="notes" aria-live="polite"></article>
+    <footer class="controls">
+      <button class="nav prev" id="btn-prev" aria-label="Previous Slide">‹<span>Prev</span></button>
+      <div class="pointer-tools">
+        <button class="pointer-btn laser" id="btn-laser" type="button" aria-label="Laser Pointer" title="Laser Pointer">
+          <span class="p-dot"></span>
+          <span class="p-txt">Laser</span>
+        </button>
+        <button class="pointer-btn spotlight" id="btn-spotlight" type="button" aria-label="Spotlight" title="Spotlight">
+          <span class="p-cone"></span>
+          <span class="p-txt">Spot</span>
+        </button>
+      </div>
+      <button class="nav next" id="btn-next" aria-label="Next Slide">Next<span>›</span></button>
+    </footer>
+  </section>
+
+  <!-- Laser / Spotlight Touch Trackpad Overlay -->
+  <div id="pointer-pad" class="pointer-pad hidden">
+    <div class="pointer-pad-header">
+      <div class="pointer-pad-mode-pill">
+        <button id="p-pill-laser" class="p-pill active" type="button"><span class="p-dot"></span>Laser</button>
+        <button id="p-pill-spot" class="p-pill" type="button"><span class="p-cone"></span>Spot</button>
+      </div>
+      <div class="pointer-header-actions">
+        <button id="p-btn-recenter" class="pointer-recenter-btn" type="button" title="Center pointer on screen">🎯 Center</button>
+        <button class="pointer-exit-btn" id="pointer-exit-btn" type="button" aria-label="Exit pointer mode">✕ Exit</button>
+      </div>
+    </div>
+    <div class="pointer-pad-hint">
+      <span>Tilt phone or glide finger • Double-tap to center</span>
+    </div>
+    <div class="pointer-pad-area" id="pointer-pad-area">
+      <!-- 16:9 Widescreen Slide Watermark Canvas -->
+      <div class="pointer-slide-canvas" id="pointer-slide-canvas">
+        <div class="slide-watermark" id="slide-watermark">
+          <div class="watermark-bg" id="watermark-bg"></div>
+          <div class="watermark-number" id="watermark-num">1</div>
+          <div class="watermark-header">
+            <span class="watermark-pill" id="watermark-deck-tag">1 / 1</span>
+            <span class="watermark-title" id="watermark-title">Slide Title</span>
+          </div>
+          <div class="watermark-body">
+            <div class="watermark-content" id="watermark-content"></div>
+          </div>
+          <div class="watermark-crosshair-h"></div>
+          <div class="watermark-crosshair-v"></div>
+          <div class="watermark-corner tl"></div>
+          <div class="watermark-corner tr"></div>
+          <div class="watermark-corner bl"></div>
+          <div class="watermark-corner br"></div>
+        </div>
+        <div class="pointer-reticle" id="pointer-reticle"></div>
+      </div>
+    </div>
+    <div class="pointer-pad-bar">
+      <button class="p-nav-btn prev" id="p-nav-prev" type="button" aria-label="Previous Slide">‹ Prev</button>
+      <button class="pointer-bar-exit" id="pointer-bottom-exit" type="button">✕ Exit Pointer</button>
+      <button class="p-nav-btn next" id="p-nav-next" type="button" aria-label="Next Slide">Next ›</button>
+    </div>
+  </div>
+
+  <!-- Open Presentations Switcher Sheet -->
+  <div id="sheet-decks" class="sheet hidden" role="dialog" aria-modal="true">
+    <div class="sheet-panel">
+      <div class="sheet-grip"></div>
+      <h2 class="section">Open Presentations</h2>
+      <div class="muted small" style="margin-bottom: 12px;">Select a presentation to switch to on your laptop:</div>
+      <ul id="deck-list" class="list decks"></ul>
+      <button class="btn ghost" id="decks-close">Close</button>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div id="sheet" class="sheet hidden" role="dialog" aria-modal="true">
+    <div class="sheet-panel">
+      <div class="sheet-grip"></div>
+      <div class="tools">
+        <button class="tool" id="t-scan">📷<span>Pair / Scan QR</span></button>
+        <button class="tool" id="t-install">📲<span>Install App</span></button>
+        <button class="tool" id="t-black">◐<span>Black screen</span></button>
+        <button class="tool" id="t-smaller">A−<span>Smaller</span></button>
+        <button class="tool" id="t-bigger">A+<span>Bigger</span></button>
+        <button class="tool" id="t-theme">☼<span>Theme</span></button>
+        <button class="tool" id="t-disconnect">⏏<span>Disconnect</span></button>
+        <button class="tool danger" id="t-end">■<span>End show</span></button>
+      </div>
+      <h2 class="section">Jump to slide</h2>
+      <ul id="slide-list" class="list slides"></ul>
+      <button class="btn ghost" id="t-close">Close</button>
+    </div>
+  </div>
+
+  <!-- Floating Smart Install Banner -->
+  <div id="install-banner" class="install-banner hidden">
+    <div class="install-banner-left">
+      <img src="icon.svg" class="install-logo" alt="">
+      <div class="install-info">
+        <div class="install-title">Install DeckTap</div>
+        <div class="install-sub">Full screen, no browser bars, faster access</div>
+      </div>
+    </div>
+    <div class="install-banner-right">
+      <button id="btn-banner-install" class="btn-banner-action" type="button">Install</button>
+      <button id="btn-banner-dismiss" class="btn-banner-close" type="button" aria-label="Dismiss">✕</button>
+    </div>
+  </div>
+
+  <!-- iOS Install Guide Sheet -->
+  <div id="sheet-ios-install" class="sheet hidden" role="dialog" aria-modal="true">
+    <div class="sheet-panel">
+      <div class="sheet-grip"></div>
+      <h2 class="section">Install on iPhone / iPad</h2>
+      <p class="muted small" style="margin-bottom: 16px;">Add DeckTap to your Home Screen for full-screen mode:</p>
+      <div class="ios-install-steps">
+        <div class="ios-step">
+          <div class="ios-step-badge">1</div>
+          <div class="ios-step-content">
+            Tap the Safari <strong>Share</strong> button at the bottom of the screen
+            <svg class="ios-share-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          </div>
+        </div>
+        <div class="ios-step">
+          <div class="ios-step-badge">2</div>
+          <div class="ios-step-content">
+            Scroll down and select <strong>"Add to Home Screen"</strong>
+            <div class="ios-step-pill">⊞ Add to Home Screen</div>
+          </div>
+        </div>
+        <div class="ios-step">
+          <div class="ios-step-badge">3</div>
+          <div class="ios-step-content">
+            Tap <strong>Add</strong> in the top-right corner. DeckTap will launch directly like a native app!
+          </div>
+        </div>
+      </div>
+      <button class="btn ghost" id="ios-install-close" style="width:100%; margin-top: 14px;">Got It</button>
+    </div>
+  </div>
+
+  <!-- Fullscreen Camera QR Scanner Modal -->
+  <div id="scanner-modal" class="scanner-modal hidden" role="dialog" aria-modal="true" aria-label="QR Code Scanner">
+    <video id="scanner-video" playsinline autoplay muted></video>
+    
+    <div class="scanner-overlay">
+      <div class="scanner-topbar">
+        <div class="scanner-title">Scan DeckTap QR</div>
+        <button id="btn-close-scanner" class="scanner-btn-icon" type="button" aria-label="Close scanner">✕</button>
+      </div>
+
+      <div class="scanner-reticle-wrap">
+        <div class="scanner-reticle">
+          <div class="reticle-corner tl"></div>
+          <div class="reticle-corner tr"></div>
+          <div class="reticle-corner bl"></div>
+          <div class="reticle-corner br"></div>
+          <div class="scanner-laser"></div>
+        </div>
+      </div>
+
+      <div class="scanner-bottom">
+        <div class="scanner-controls">
+          <button id="btn-scanner-torch" class="scanner-pill-btn hidden" type="button">
+            <span>🔦 Torch</span>
+          </button>
+          <button id="btn-scanner-flip" class="scanner-pill-btn hidden" type="button">
+            <span>🔄 Flip</span>
+          </button>
+          <label id="btn-scanner-upload" class="scanner-pill-btn" role="button">
+            <span>📁 Upload</span>
+            <input type="file" id="scanner-file-input" accept="image/*" class="sr-only">
+          </label>
+        </div>
+        <div id="scanner-feedback" class="scanner-feedback">Point camera at QR code on laptop screen</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="crypto.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
