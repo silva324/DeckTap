@@ -22,7 +22,18 @@ echo "==> Packaging ZIP: ${ZIP_NAME}..."
 rm -f "${DIST_DIR}/${ZIP_NAME}"
 (
     cd "${DIST_DIR}/bin"
-    zip -9 "../${ZIP_NAME}" DeckTap.exe
+    if command -v zip >/dev/null 2>&1; then
+        zip -9 "../${ZIP_NAME}" DeckTap.exe
+    elif command -v 7z >/dev/null 2>&1; then
+        7z a -tzip -mx=9 "../${ZIP_NAME}" DeckTap.exe
+    elif command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -NoProfile -NonInteractive -Command "Compress-Archive -Path 'DeckTap.exe' -DestinationPath '../${ZIP_NAME}' -Force"
+    elif command -v pwsh >/dev/null 2>&1; then
+        pwsh -NoProfile -NonInteractive -Command "Compress-Archive -Path 'DeckTap.exe' -DestinationPath '../${ZIP_NAME}' -Force"
+    else
+        echo "Error: No ZIP utility found (tried: zip, 7z, powershell.exe, pwsh)" >&2
+        exit 1
+    fi
 )
 
 echo "==> Successfully created:"
