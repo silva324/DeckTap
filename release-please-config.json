@@ -4,6 +4,7 @@
     ".": {
       "release-type": "go",
       "package-name": "decktap",
+      "include-component-in-tag": false,
       "include-v-in-tags": true,
       "bump-minor-pre-major": true,
       "changelog-sections": [
