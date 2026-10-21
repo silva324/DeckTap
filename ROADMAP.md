@@ -1,6 +1,7 @@
-# DeckTap Product Roadmap
+# DeckTap Product Roadmap & Ideas
 
-This document outlines the strategic product vision, architectural horizons, and upcoming capabilities for **DeckTap**.
+> [!NOTE]
+> **No Commitments / Exploratory Only:** This document is an informal, living collection of creative explorations and community ideas. Nothing here represents a commitment, guarantee, roadmapped deliverable, or promised timeline. Priorities are fluid, community-driven, and subject to change or abandonment at any time.
 
 ---
 
@@ -9,81 +10,39 @@ This document outlines the strategic product vision, architectural horizons, and
 - [x] **Zero-Trust End-to-End Encryption (`SPEC-SEC-001`):** AES-256-GCM encryption with ephemeral key transmission via URI `#fragment` (RFC 3986).
 - [x] **Anti-Shoulder-Surfing PIN Verification:** 4-digit visual PIN shown exclusively on the presenter's screen with rate-limiting.
 - [x] **Zero-Config Cloudflare Tunnel & LAN Fallback:** Autonomous edge tunnel deployment with automatic fallback to local LAN IP.
-- [x] **Embedded Desktop In-App Window:** Clean, native GUI window showing the pairing QR code, PIN, connection status, and active peers (no external browser required).
-- [x] **PWA "Add to Home Screen" & Mobile Optimizations:** Installable progressive web app, fixed non-scrolling navigation and controls bars, isolated speaker notes scrolling, and OLED dark mode.
+- [x] **Embedded Desktop In-App Window:** Native GUI window showing the pairing QR code, PIN, connection status, and active peers (no external browser required).
+- [x] **PWA "Add to Home Screen" & Mobile Optimizations:** Installable progressive web app, fixed non-scrolling bars, isolated speaker notes scrolling, and OLED dark mode.
 - [x] **In-App Camera QR Code Scanner:** Instant pairing directly inside the PWA with camera viewfinder, torch toggle, lens switcher, and manual link entry.
 - [x] **Resilient Session Resumption:** Deep backgrounding & memory eviction survival via `localStorage` + `sessionStorage` tokens with dead-connection heartbeat detection.
-- [x] **Virtual Laser Pointer & Spotlight Overlay:** On-screen macOS Cocoa overlay with 16:9 widescreen HUD and real-time normalized touch tracking.
+- [x] **Virtual Laser Pointer & Spotlight Overlay:** On-screen macOS Cocoa overlay with 16:9 widescreen HUD and real-time touch tracking.
 - [x] **Automated Updates via GitHub Releases:** Background release checking, semver comparison, desktop update notification banner, and system tray menu item.
 - [x] **Native Presentation Drivers:** Native AppleScript for macOS PowerPoint, COM automation for Windows PowerPoint, and a synthetic zero-dependency Demo Engine (`-demo`).
-- [x] **Automated CI/CD:** Continuous Integration matrix (macOS, Windows, Linux), automated semantic versioning via `release-please`, and cross-platform multi-architecture asset publishing (`.dmg`, `.zip`, `.exe`, `.tar.gz`).
+- [x] **Automated CI/CD:** Matrix continuous integration, automated semantic versioning via `release-please`, and cross-platform packaging (`.dmg`, `.zip`, `.exe`, `.tar.gz`).
 
 ---
 
-## 🚀 Horizon 1 — Multi-Screen & Visual Presentation
+## 🚀 Horizon 1 — Multi-Screen & Visual Presentation (Ideas)
 
-### 1. Multi-Screen / External Projector Targeting
-- **Goal:** Ensure virtual laser pointer and spotlight overlays render accurately on external projectors and audience displays.
-- **Scope:**
-  - Enumerate connected displays (`[NSScreen screens]`).
-  - Pre-Presenter Display Selector: Choose between **All Displays (Simultaneous)**, **Projector / External Display**, or **Laptop Screen**.
-  - Multi-window synchronized Cocoa overlay views.
-
-### 2. Live Slide Visuals & Screenshot Mirroring
-- **Goal:** Mirror actual slide visuals directly under the pointer trackpad on the mobile phone.
-- **Scope:**
-  - Pre-Presenter slide visuals loader: drop or select slide screenshots.
-  - Client-side storage (IndexedDB) for zero-latency slide rendering.
-  - 16:9 responsive aspect ratio container with dynamic reticle scaling.
-
-### 3. Multi-Presentation Management & Switching
-- **Goal:** Presenters with multiple slide decks open on their laptop can view, monitor, and switch between them remotely from their phone.
-- **Scope:**
-  - Enumerate all open presentations in PowerPoint via AppleScript (`presentations`) and Windows COM.
-  - Mobile Deck Selector: Bottom sheet or dropdown displaying open decks with slide counts.
-  - Remote Deck Switching: One-tap remote switch bringing the selected deck forward.
+- **External Projector & Multi-Display Targeting:** Exploring options to render laser pointer and spotlight overlays simultaneously or selectively across external projectors, secondary monitors, and laptop screens.
+- **Slide Visuals / Screenshot Mirroring:** Ideas around displaying lightweight slide screenshots or previews directly on the phone's touch trackpad for more intuitive pointing.
+- **Multi-Deck Management:** Exploring remote switching when presenters have more than one `.pptx` presentation open simultaneously.
 
 ---
 
-## 🔮 Horizon 2 — Advanced Speaker Experience & Pacing
+## 🔮 Horizon 2 — Speaker Experience & Pacing (Ideas)
 
-### 4. Silent Haptic Pacing Timer
-- **Goal:** Keep the presenter on schedule without needing to glance at a clock or phone screen.
-- **Scope:**
-  - Configurable target presentation duration (e.g., 15, 20, 45 minutes) configured on mobile.
-  - Palm vibration alerts via `navigator.vibrate`:
-    - **50% elapsed:** 1 gentle pulse.
-    - **75% elapsed:** 2 gentle pulses.
-    - **90% elapsed / 2 min left:** 3 pulses.
-    - **Overtime:** Continuous subtle pulsing and timer display transitions to warning red.
-
-### 5. Visual Slide Grid & Live Search Jump Sheet
-- **Goal:** Instant non-linear navigation during audience Q&A or discussions without paging through all intermediate slides in front of the audience.
-- **Scope:**
-  - Slide drawer showing all slide numbers and titles.
-  - Real-time search filter (e.g. typing "architecture" immediately narrows the list down to Slide 14).
-  - One-tap jump (`GOTO`) directly to the target slide.
-
-### 6. Gyroscope-based Laser Pointer (`DeviceOrientationEvent`)
-- **Goal:** Point the phone at the audience screen to move the laser dot like a physical presenter remote.
-- **Scope:**
-  - Mobile sensor capture via `DeviceOrientationEvent` (`gamma` tilt left/right, `beta` tilt up/down).
-  - Hold-to-point interaction with resting orientation calibrated upon touching the screen.
-  - Exponential moving average smoothing to eliminate hand tremor jitter.
+- **Silent Haptic Pacing Timer:** Potential subtle palm vibration alerts (`navigator.vibrate`) at milestone intervals (e.g. half-time, 2-minute warning) to help speakers manage time without watching a clock.
+- **Visual Slide Grid & Search:** Quick-jump sheet to filter slides by title during audience Q&A sessions.
+- **Motion / Gyroscope Pointer:** Experiments using device motion sensors (`DeviceOrientationEvent`) as an alternative to touch dragging.
 
 ---
 
-## 🌐 Horizon 3 — Ecosystem, Additional Engines & P2P
+## 🌐 Horizon 3 — Ecosystem & Explorations
 
-- **Additional Presentation Engines:**
-  - Apple Keynote driver on macOS.
-  - Google Slides integration via browser extension or Chrome DevTools Protocol.
-  - Web slide decks (Reveal.js, Marp, Slidev).
-- **Multi-Device Co-Presenting:**
-  - Allow two speakers with phones to pair to the same host with token delegation for dual-presenter talks.
-- **Offline Direct BLE / WebRTC:**
-  - P2P pairing when neither Wi-Fi nor internet is available in secure government/enterprise auditoriums.
+- **Alternative Presentation Drivers:** Exploring community-contributed support for Apple Keynote, Google Slides, or web-based slide formats (Reveal.js, Marp).
+- **Multi-Presenter Hand-off:** Experimental token delegation for dual-speaker presentations.
+- **Direct Offline P2P:** Researching direct BLE or WebSockets P2P connections for highly restricted, offline auditorium networks.
 
 ---
 
-*Suggestions and contributions are welcome! Please open an issue or PR following [CONTRIBUTING.md](CONTRIBUTING.md).*
+*Ideas and community feedback are always welcome! Feel free to start a discussion or propose an idea on GitHub.*

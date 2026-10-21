@@ -31,7 +31,7 @@
 | 🚀 **Auto-Updates** | **GitHub Releases Integration**| Automatic background check against official GitHub releases with desktop update notification banners and 1-click update. |
 | 🤖 **Autonomous CI/CD** | **Automated Releases** | Full matrix continuous integration, automated SemVer changelog management via `release-please`, and cross-platform packaging (`.dmg`, `.zip`, `.exe`, `.tar.gz`). |
 
-> 🗺️ **Looking for what's coming next?** Explore planned features, multi-screen external display targeting, and our upcoming milestones in [**ROADMAP.md**](ROADMAP.md).
+> 🗺️ **Looking for what's ahead?** Explore creative ideas, horizons, and exploratory concepts in [**ROADMAP.md**](ROADMAP.md).
 
 ---
 
@@ -156,7 +156,7 @@ You can also sponsor via [GitHub Sponsors](https://github.com/sponsors/silva324)
 
 ## 🗺️ Roadmap & Community
 
-- **[Product Roadmap](ROADMAP.md)**: Explore planned features like Multi-Screen External Display Targeting, Slide Visuals Mirroring, and Gyroscope Laser Pointer.
+- **[Product Roadmap & Ideas](ROADMAP.md)**: Explore future horizons, exploratory ideas, and community wishlists.
 - **[Contributing Guide](CONTRIBUTING.md)**: Read how to contribute code, follow Conventional Commits for `release-please`, and submit PRs.
 - **[Security Policy](SECURITY.md)**: Responsible disclosure guidelines and cryptographic boundaries.
 - **[Code of Conduct](CODE_OF_CONDUCT.md)**: Contributor Covenant v2.1.
