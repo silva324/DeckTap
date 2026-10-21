@@ -2,7 +2,9 @@
 ; Compatible with Inno Setup 6.0+
 
 #define MyAppName "DeckTap"
-#define MyAppVersion "0.0.1"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.1"
+#endif
 #define MyAppPublisher "Miguel Silva and contributors"
 #define MyAppURL "https://github.com/silva324/DeckTap"
 #define MyAppExeName "DeckTap.exe"
