@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/silva324/DeckTap/compare/v0.7.1...v0.8.0) (2026-10-21)
+
+
+### Features
+
+* **app:** add version display and about menu across desktop and mobile ([#33](https://github.com/silva324/DeckTap/issues/33)) ([a3a7655](https://github.com/silva324/DeckTap/commit/a3a76555b748427340a49a5057ab0cb1f9fab5c5))
+
 ## [0.7.1](https://github.com/silva324/DeckTap/compare/v0.7.0...v0.7.1) (2026-10-21)
 
 
