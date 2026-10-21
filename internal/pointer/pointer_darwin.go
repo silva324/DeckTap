@@ -81,51 +81,87 @@ package pointer
 static NSWindow *overlayWindow = nil;
 static LaserView *overlayView = nil;
 static NSScreen *currentScreen = nil;
+static NSTimeInterval lastScreenQueryTime = 0.0;
+static NSScreen *cachedTargetScreen = nil;
 
-// findSlideShowScreen locates the presentation display when multiple screens are connected.
-// If PowerPoint has a Slide Show window running, it returns the screen containing that window.
-// Otherwise, on multi-monitor setups, it targets the secondary display (projector/external screen)
-// instead of the presenter's laptop screen.
-static NSScreen *findSlideShowScreen(void) {
+// querySlideShowScreen locates the presentation display when multiple screens are connected.
+// It directly queries PowerPoint via AppleScript for the exact bounds of 'slide show window 1'.
+// This strictly respects the user's configured presentation display and Presenter View settings
+// without modifying any PowerPoint or system configurations.
+static NSScreen *querySlideShowScreen(void) {
     NSArray<NSScreen *> *screens = [NSScreen screens];
     if ([screens count] <= 1) {
         return [screens firstObject];
     }
 
-    // 1. Look for PowerPoint's full-screen Slide Show window across on-screen windows
-    CFArrayRef windowList = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
-    if (windowList) {
-        NSArray *windows = (__bridge NSArray *)windowList;
-        for (NSDictionary *info in windows) {
-            NSString *owner = info[(id)kCGWindowOwnerName];
-            NSString *name = info[(id)kCGWindowName];
-            if ([owner isEqualToString:@"Microsoft PowerPoint"]) {
-                if (name != nil && ([name containsString:@"Slide Show"] || [name containsString:@"Diaporama"] ||
-                                    [name containsString:@"Presentación"] || [name containsString:@"Bildschirmpräsentation"])) {
-                    NSDictionary *boundsDict = info[(id)kCGWindowBounds];
-                    if (boundsDict) {
-                        CGRect cgBounds;
-                        if (CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)boundsDict, &cgBounds)) {
-                            CGFloat primaryH = screens[0].frame.size.height;
-                            NSPoint centerPt = NSMakePoint(CGRectGetMidX(cgBounds), primaryH - CGRectGetMidY(cgBounds));
-                            for (NSScreen *s in screens) {
-                                if (NSPointInRect(centerPt, s.frame)) {
-                                    CFRelease(windowList);
-                                    return s;
-                                }
+    @autoreleasepool {
+        static NSAppleScript *script = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            script = [[NSAppleScript alloc] initWithSource:
+                @"if application \"Microsoft PowerPoint\" is running then\n"
+                @"  tell application \"Microsoft PowerPoint\"\n"
+                @"    if (count of slide show windows) > 0 then\n"
+                @"      set b to bounds of slide show window 1\n"
+                @"      return (item 1 of b as string) & \",\" & (item 2 of b as string) & \",\" & (item 3 of b as string) & \",\" & (item 4 of b as string)\n"
+                @"    end if\n"
+                @"  end tell\n"
+                @"end if\n"
+                @"return \"\""
+            ];
+            [script compileAndReturnError:nil];
+        });
+
+        if (script != nil) {
+            NSDictionary *err = nil;
+            NSAppleEventDescriptor *desc = [script executeAndReturnError:&err];
+            if (desc && [desc stringValue]) {
+                NSString *str = [desc stringValue];
+                if ([str length] > 0) {
+                    NSArray *parts = [str componentsSeparatedByString:@","];
+                    if ([parts count] == 4) {
+                        CGFloat left = [[parts objectAtIndex:0] doubleValue];
+                        CGFloat top = [[parts objectAtIndex:1] doubleValue];
+                        CGFloat right = [[parts objectAtIndex:2] doubleValue];
+                        CGFloat bottom = [[parts objectAtIndex:3] doubleValue];
+
+                        CGFloat midX = (left + right) / 2.0;
+                        CGFloat midY = (top + bottom) / 2.0;
+
+                        // QuickDraw (top-left) to Cocoa (bottom-left of primary screen screens[0]) coordinate conversion:
+                        CGFloat primaryH = screens[0].frame.size.height;
+                        NSPoint cocoaMid = NSMakePoint(midX, primaryH - midY);
+
+                        for (NSScreen *s in screens) {
+                            if (NSPointInRect(cocoaMid, [s frame])) {
+                                return s;
                             }
                         }
                     }
                 }
             }
         }
-        CFRelease(windowList);
     }
 
-    // 2. Multi-screen presentation heuristic:
-    // screens[0] is the primary laptop display (menu bar, Presenter View).
-    // screens[1] is the external presentation screen (audience projector).
-    return screens[1];
+    // Fallback if no slide show window is detected: use mainScreen or primary screen
+    NSScreen *main = [NSScreen mainScreen];
+    if (main != nil) {
+        return main;
+    }
+    return screens[0];
+}
+
+static NSScreen *getSlideShowScreen(BOOL forceRefresh) {
+    if (cachedTargetScreen != nil && ![[NSScreen screens] containsObject:cachedTargetScreen]) {
+        cachedTargetScreen = nil;
+    }
+
+    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
+    if (forceRefresh || cachedTargetScreen == nil || (now - lastScreenQueryTime > 1.5)) {
+        cachedTargetScreen = querySlideShowScreen();
+        lastScreenQueryTime = now;
+    }
+    return cachedTargetScreen;
 }
 
 static void ensureWindowOnTargetScreen(NSScreen *targetScreen) {
@@ -166,10 +202,12 @@ static void updatePointerNative(int active, double x, double y, int mode) {
                 overlayView.active = NO;
                 [overlayView setNeedsDisplay:YES];
             }
+            lastScreenQueryTime = 0.0;
             return;
         }
 
-        NSScreen *targetScreen = findSlideShowScreen();
+        BOOL isStarting = (overlayView == nil || !overlayView.active);
+        NSScreen *targetScreen = getSlideShowScreen(isStarting);
         ensureWindowOnTargetScreen(targetScreen);
         if (overlayView == nil) return;
 
@@ -188,6 +226,8 @@ static void closePointerNative(void) {
             overlayWindow = nil;
             overlayView = nil;
             currentScreen = nil;
+            cachedTargetScreen = nil;
+            lastScreenQueryTime = 0.0;
         }
     });
 }
