@@ -78,6 +78,9 @@ func pair(t *testing.T, h *Host, origin string) *testPhone {
 	}
 	conn, err := ws.Dial("ws://127.0.0.1:"+strconv.Itoa(h.Port())+"/ws", hdr)
 	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("skipping live socket test: network dial not permitted in sandbox: %v", err)
+		}
 		t.Fatal(err)
 	}
 	p := &testPhone{conn: conn, c: c}
