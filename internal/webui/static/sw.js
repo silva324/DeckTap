@@ -1,5 +1,5 @@
-/* DeckTap Service Worker – PWA offline caching & installability */
-const CACHE_NAME = "decktap-v2.3";
+/* DeckTap Service Worker – PWA offline caching, resilient recovery & installability */
+const CACHE_NAME = "decktap-v2.4";
 const ASSETS = [
   "./",
   "index.html",
@@ -27,8 +27,31 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   // Never intercept WebSocket connections
   if (e.request.url.startsWith("ws:") || e.request.url.startsWith("wss:")) return;
+  if (e.request.method !== "GET") return;
 
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(e.request)
+      .then((res) => {
+        // If server returns HTTP 5xx (e.g. Cloudflare Error 1033 / 530 / 502), recover with cached asset
+        if (!res.ok && res.status >= 500) {
+          return caches.match(e.request).then((cached) => {
+            if (cached) return cached;
+            if (e.request.mode === "navigate") {
+              return caches.match("index.html").then((idx) => idx || res);
+            }
+            return res;
+          });
+        }
+        return res;
+      })
+      .catch(() => {
+        return caches.match(e.request).then((cached) => {
+          if (cached) return cached;
+          if (e.request.mode === "navigate") {
+            return caches.match("index.html");
+          }
+          return new Response("Offline", { status: 503, statusText: "Offline" });
+        });
+      })
   );
 });

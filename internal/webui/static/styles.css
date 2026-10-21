@@ -214,6 +214,29 @@ body.no-preview .preview { display: none; }
 .lock-ic.big { width: 56px; height: 56px; color: var(--accent); }
 
 /* PIN Verification Screen */
+.conn-info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.conn-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+.conn-badge-dot.disconnected {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
 .pin-center { gap: 10px; max-width: 360px; margin: auto; }
 .pin-shield { font-size: 40px; margin-bottom: 2px; }
 .pin-dots { display: flex; justify-content: center; gap: 12px; margin: 12px 0 16px; }

@@ -69,9 +69,18 @@ func pair(t *testing.T, h *Host, origin string) *testPhone {
 	t.Helper()
 	url := h.PairingURL()
 	frag := url[strings.Index(url, "#")+1:]
+	if idx := strings.Index(frag, "@"); idx != -1 {
+		frag = frag[:idx]
+	}
 	parts := strings.SplitN(frag, ".", 2)
-	key, _ := e2ee.B64.DecodeString(parts[1])
-	c, _ := e2ee.NewCipher(key)
+	key, err := e2ee.B64.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("decode key: %v (parts[1]=%q)", err, parts[1])
+	}
+	c, err := e2ee.NewCipher(key)
+	if err != nil {
+		t.Fatalf("NewCipher: %v", err)
+	}
 	hdr := http.Header{}
 	if origin != "" {
 		hdr.Set("Origin", origin)
@@ -167,17 +176,32 @@ func TestTunnelModeLockoutAndReset(t *testing.T) {
 	h := newTestHost(t, ModeTunnel)
 	waitFor(t, "tunnel online", func() bool { return h.Snapshot().TunnelState == TunnelOnline })
 	url := h.PairingURL()
-	if !strings.HasPrefix(url, "https://fake-") || !strings.Contains(url, ".trycloudflare.com/#") {
+	if !strings.HasPrefix(url, "https://silva324.github.io/DeckTap/#") || !strings.Contains(url, "@fake-") || !strings.Contains(url, ".trycloudflare.com") {
 		t.Fatalf("pairing url %q", url)
+	}
+	directURL := h.DirectURL()
+	if !strings.HasPrefix(directURL, "https://fake-") || !strings.Contains(directURL, ".trycloudflare.com/#") {
+		t.Fatalf("direct url %q", directURL)
 	}
 	public := h.Snapshot().PublicURL
 
-	// cloudflared forwards to 127.0.0.1, the browser Origin is the public URL
-	p := pair(t, h, public)
+	// verify allowed origins
+	if !h.allowedOrigin(public) {
+		t.Fatalf("expected public origin %q to be allowed", public)
+	}
+	if !h.allowedOrigin("https://silva324.github.io") {
+		t.Fatal("expected canonical PWA origin https://silva324.github.io to be allowed")
+	}
+	if h.allowedOrigin("https://evil.example") {
+		t.Fatal("foreign origin should be rejected")
+	}
+
+	// cloudflared forwards to 127.0.0.1, the browser Origin is the canonical PWA
+	p := pair(t, h, "https://silva324.github.io")
 	p.send(t, map[string]any{"action": "PING"})
 	p.recvType(t, "PONG")
 
-	// a foreign origin is refused
+	// a foreign origin is refused on websocket dial
 	if _, err := ws.Dial("ws://127.0.0.1:"+strconv.Itoa(h.Port())+"/ws", http.Header{"Origin": {"https://evil.example"}}); err == nil {
 		t.Fatal("foreign origin accepted")
 	}

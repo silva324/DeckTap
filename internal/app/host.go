@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,10 +28,14 @@ const (
 	ModeLocal  Mode = "local"  // loopback only, for testing in a desktop browser
 )
 
+// DefaultPWAURL is the canonical PWA origin hosted on GitHub Pages.
+const DefaultPWAURL = "https://silva324.github.io/DeckTap/"
+
 type Config struct {
 	Mode         Mode
 	Port         int // 0 = OS-assigned
 	Cloudflared  string
+	PWAURL       string // Canonical PWA entry point (default: DefaultPWAURL). "direct" = direct tunnel URL.
 	MaxFailures  int
 	PollInterval time.Duration
 	Version      string
@@ -54,6 +59,7 @@ type Snapshot struct {
 	Session     session.Status
 	Show        presenter.Status
 	PairingURL  string
+	DirectURL   string
 	Pin         string
 	Version     string
 	Update      updater.Status
@@ -93,6 +99,9 @@ func NewHost(cfg Config, ctl presenter.Controller, log *slog.Logger) *Host {
 	ver := cfg.Version
 	if ver == "" {
 		ver = "0.0.1"
+	}
+	if cfg.PWAURL == "" {
+		cfg.PWAURL = DefaultPWAURL
 	}
 	h := &Host{
 		cfg:         cfg,
@@ -146,9 +155,28 @@ func (h *Host) allowedOrigin(origin string) bool {
 	if h.publicURL != "" && strings.EqualFold(origin, h.publicURL) {
 		return true
 	}
-	if h.cfg.Mode == ModeLocal && h.ln != nil {
+	// Allow canonical GitHub Pages PWA origin
+	if strings.EqualFold(origin, "https://silva324.github.io") {
+		return true
+	}
+	// Allow custom PWAURL origin if configured
+	if h.cfg.PWAURL != "" && h.cfg.PWAURL != "direct" {
+		if u, err := url.Parse(h.cfg.PWAURL); err == nil && u.Scheme != "" && u.Host != "" {
+			pwaOrigin := fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+			if strings.EqualFold(origin, pwaOrigin) {
+				return true
+			}
+		}
+	}
+	// Allow trycloudflare tunnel origins (e.g. from previously installed PWA or direct tunnel access)
+	if strings.HasSuffix(strings.ToLower(origin), ".trycloudflare.com") {
+		return true
+	}
+	if h.ln != nil {
 		port := strconv.Itoa(h.ln.Addr().(*net.TCPAddr).Port)
-		return origin == "http://127.0.0.1:"+port || origin == "http://localhost:"+port
+		if origin == "http://127.0.0.1:"+port || origin == "http://localhost:"+port {
+			return true
+		}
 	}
 	return false
 }
@@ -305,8 +333,8 @@ func (h *Host) Reset() {
 	h.notify()
 }
 
-// PairingURL is the QR content, or "" when not available (token burned, tunnel down…).
-func (h *Host) PairingURL() string {
+// DirectURL returns the direct tunnel or loopback URL without canonical PWA wrapping.
+func (h *Host) DirectURL() string {
 	frag := h.Hub.Fragment()
 	if frag == "" {
 		return ""
@@ -320,6 +348,41 @@ func (h *Host) PairingURL() string {
 		}
 		return h.publicURL + "/#" + frag
 	default:
+		if h.ln == nil {
+			return ""
+		}
+		return fmt.Sprintf("http://127.0.0.1:%d/#%s", h.ln.Addr().(*net.TCPAddr).Port, frag)
+	}
+}
+
+// PairingURL is the QR content, or "" when not available (token burned, tunnel down…).
+func (h *Host) PairingURL() string {
+	frag := h.Hub.Fragment()
+	if frag == "" {
+		return ""
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	switch h.cfg.Mode {
+	case ModeTunnel:
+		if h.tunnelState != TunnelOnline || h.publicURL == "" {
+			return ""
+		}
+		if h.cfg.PWAURL != "" && h.cfg.PWAURL != "direct" {
+			basePWA := h.cfg.PWAURL
+			if !strings.HasSuffix(basePWA, "/") {
+				basePWA += "/"
+			}
+			tunnelHost := strings.TrimPrefix(h.publicURL, "https://")
+			tunnelHost = strings.TrimPrefix(tunnelHost, "http://")
+			tunnelHost = strings.TrimRight(tunnelHost, "/")
+			return fmt.Sprintf("%s#%s@%s", basePWA, frag, tunnelHost)
+		}
+		return h.publicURL + "/#" + frag
+	default:
+		if h.ln == nil {
+			return ""
+		}
 		return fmt.Sprintf("http://127.0.0.1:%d/#%s", h.ln.Addr().(*net.TCPAddr).Port, frag)
 	}
 }
@@ -329,6 +392,7 @@ func (h *Host) Snapshot() Snapshot {
 		Session:    h.Hub.Status(),
 		Show:       h.Sync.Status(),
 		PairingURL: h.PairingURL(),
+		DirectURL:  h.DirectURL(),
 		Pin:        h.Hub.Pin(),
 		Version:    h.cfg.Version,
 		Update:     h.updater.Status(),
@@ -343,35 +407,35 @@ func (h *Host) Snapshot() Snapshot {
 func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	switch {
 	case s.Session.State == session.LockedOut || s.TunnelState == TunnelLocked:
-		headline, problem = "Stopped: too many failed connection attempts", true
+		headline, problem = "Connection paused: multiple incorrect PIN attempts. Click 'New Pairing Code' to resume.", true
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelStarting:
-		headline = "Starting secure tunnel…"
+		headline = "Preparing secure connection…"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelFailed:
-		headline, problem = "Tunnel problem: "+s.TunnelError, true
+		headline, problem = "Connection issue: "+s.TunnelError, true
 	case s.Mode == ModeTunnel:
-		headline = "Running · tunnel online"
+		headline = "Ready to connect"
 	default:
-		headline = "Running · local test mode"
+		headline = "Ready · local test mode"
 	}
 	switch {
 	case s.Session.State == session.Unpaired:
-		phone = "Phone: waiting for pairing"
+		phone = "Scan QR code with your phone"
 	case s.Session.Connected:
-		phone = "Phone: connected 🔒"
+		phone = "Phone connected 🔒"
 	case s.Session.State == session.Paired:
-		phone = "Phone: paired, reconnecting…"
+		phone = "Phone paired, reconnecting…"
 	default:
-		phone = "Phone: —"
+		phone = "Ready"
 	}
 	switch {
 	case !s.Show.AppRunning:
-		show = "PowerPoint: not running"
+		show = "PowerPoint not detected"
 	case s.Show.DeckName == "":
-		show = "PowerPoint: no presentation open"
+		show = "No presentation open"
 	case s.Show.Presenting:
-		show = fmt.Sprintf("Presenting %d/%d · %s", s.Show.Slide, s.Show.Total, s.Show.DeckName)
+		show = fmt.Sprintf("Slide %d of %d · %s", s.Show.Slide, s.Show.Total, s.Show.DeckName)
 	default:
-		show = fmt.Sprintf("Ready · %s (%d slides)", s.Show.DeckName, s.Show.Total)
+		show = fmt.Sprintf("%s (%d slides ready)", s.Show.DeckName, s.Show.Total)
 	}
 	return
 }
@@ -383,6 +447,7 @@ func (h *Host) adminView() admin.View {
 		Headline:       headline,
 		Detail:         phone + " · " + show,
 		PairingURL:     s.PairingURL,
+		DirectURL:      s.DirectURL,
 		PinCode:        s.Pin,
 		Problem:        problem,
 		Paired:         s.Session.State == session.Paired,
@@ -393,7 +458,7 @@ func (h *Host) adminView() admin.View {
 		v.PublicHost = strings.TrimPrefix(s.PublicURL, "https://")
 	}
 	if s.Session.State == session.Paired {
-		v.Detail = phone + " · " + show + " · the QR code was used and is no longer valid"
+		v.Detail = phone + " · " + show + " · Remote control is active"
 	}
 	return v
 }
