@@ -18,6 +18,7 @@
 - [x] **Automated Updates via GitHub Releases:** Background release checking, semver comparison, desktop update notification banner, and system tray menu item.
 - [x] **Native Presentation Drivers:** Native AppleScript for macOS PowerPoint, COM automation for Windows PowerPoint, and a synthetic zero-dependency Demo Engine (`-demo`).
 - [x] **Automated CI/CD:** Matrix continuous integration, automated semantic versioning via `release-please`, and cross-platform packaging (`.dmg`, `.zip`, `.exe`, `.tar.gz`).
+- [x] **Homebrew Cask Distribution:** One-command installation and seamless updates via `brew install --cask silva324/tap/decktap`.
 
 ---
 

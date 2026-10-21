@@ -94,6 +94,18 @@ sequenceDiagram
 ## 🚀 Installation & Downloads
 
 ### macOS
+
+#### Option A: Homebrew Cask (Recommended)
+Install or update with a single terminal command:
+```bash
+brew install --cask silva324/tap/decktap
+```
+To update in the future:
+```bash
+brew upgrade --cask decktap
+```
+
+#### Option B: Direct DMG Download
 Download the latest **Universal `.dmg`** from [Releases](https://github.com/silva324/DeckTap/releases):
 1. Download `DeckTap-*-macOS-Universal.dmg`.
 2. Open the disk image and drag **DeckTap** to your `/Applications` folder.
