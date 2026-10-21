@@ -27,7 +27,7 @@
 | 📱 **Mobile PWA Experience** | **Smart Install & Scanner** | Installable Progressive Web App with an **in-app camera QR code scanner** (torch & lens switch), OLED dark mode, swipe gestures, and haptic feedback. |
 | 🔄 **Resilient Connection** | **Deep Background Resume** | Survives phone lock, multi-app switching, and memory eviction via encrypted session resumption and dead-connection heartbeat detection. |
 | 🎯 **Presenter Tools** | **Virtual Laser & Spotlight** | Full-screen macOS on-screen laser pointer and dimming spotlight overlay with 16:9 HUD, touch reticle, and slide mirroring. |
-| 📝 **Speaker Notes** | **Typography & Up Next** | Distraction-free speaker notes with resizable text (`A-` / `A+`), slide index jump drawer, presentation stopwatch, and stage blackout (`B` / `W`). |
+| 📝 **Speaker Notes** | **Smart Cues & Pinch Zoom** | Distraction-free speaker notes with **two-finger pinch-to-zoom**, smart color-coded stage direction cues (`[DEMO]`, `[PAUSE]`, `[CLICK]`), slide index drawer, stopwatch, and blackout (`B` / `W`). |
 | 🚀 **Auto-Updates** | **GitHub Releases Integration**| Automatic background check against official GitHub releases with desktop update notification banners and 1-click update. |
 | 🤖 **Autonomous CI/CD** | **Automated Releases** | Full matrix continuous integration, automated SemVer changelog management via `release-please`, and cross-platform packaging (`.dmg`, `.zip`, `.exe`, `.tar.gz`). |
 
@@ -160,6 +160,15 @@ If DeckTap has saved your presentations and kept your speaker notes private, con
 </p>
 
 You can also sponsor via [GitHub Sponsors](https://github.com/sponsors/silva324).
+
+---
+
+## 📚 Documentation
+
+Detailed guides and architecture specifications are available in the [`docs/`](docs/) directory:
+
+- **[Presenter & User Guide](docs/user-guide.md)**: Full walkthrough of smart stage cues (`[DEMO]`, `[PAUSE]`), pinch-to-zoom notes resizing, virtual laser & spotlight controls, slide drawer navigation, and PWA setup.
+- **[Architecture & Security Specification](docs/architecture.md)**: Deep dive into the AES-256-GCM zero-trust security model, out-of-band key exchange, and macOS/Windows PowerPoint automation drivers.
 
 ---
 
