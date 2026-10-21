@@ -468,10 +468,10 @@
   }
 
   // Prevent rubber-band dragging of the window while preserving smooth scroll inside notes/lists
-  let touchStartY = 0;
+  let scrollTouchStartY = 0;
   document.addEventListener("touchstart", (e) => {
     if (e.touches && e.touches.length) {
-      touchStartY = e.touches[0].clientY;
+      scrollTouchStartY = e.touches[0].clientY;
     }
   }, { passive: true });
 
@@ -481,7 +481,7 @@
       e.preventDefault();
       return;
     }
-    const deltaY = e.touches[0].clientY - touchStartY;
+    const deltaY = e.touches[0].clientY - scrollTouchStartY;
     const isAtTop = scrollable.scrollTop <= 0 && deltaY > 0;
     const isAtBottom = (scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight) && deltaY < 0;
     if (isAtTop || isAtBottom) {
