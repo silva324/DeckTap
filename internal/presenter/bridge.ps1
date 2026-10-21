@@ -85,6 +85,7 @@ function Start-Show($from) {
     if (-not $w) {
         $p = Get-Pres $app
         if (-not $p) { throw 'No presentation is open in PowerPoint' }
+        try { $p.SlideShowSettings.ShowWithPresenter = $true } catch {}
         $w = $p.SlideShowSettings.Run()
     }
     if ($from -gt 1) { $w.View.GotoSlide([int]$from) }

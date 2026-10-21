@@ -308,10 +308,16 @@ func (m *Mac) Start(ctx context.Context, from int) error {
 		return ErrNoDeck
 	}
 	if !st.Presenting {
-		if _, err := osascript(ctx, `tell application "Microsoft PowerPoint"
+		const startScript = `if application "Microsoft PowerPoint" is not running then return "0"
+tell application "Microsoft PowerPoint"
 	activate
-	run slide show slide show settings of active presentation
-end tell`); err != nil {
+	set ss to slide show settings of active presentation
+	try
+		set show with presenter of ss to true
+	end try
+	run slide show ss
+end tell`
+		if _, err := osascript(ctx, startScript); err != nil {
 			return err
 		}
 		if from > 1 {
@@ -407,7 +413,11 @@ func (m *Mac) SwitchDeck(ctx context.Context, name string, startShow bool) error
 			if (count of slide show windows) > 0 then
 				exit slide show slide show view of slide show window 1
 			end if
-			run slide show slide show settings of pr
+			set ss to slide show settings of pr
+			try
+				set show with presenter of ss to true
+			end try
+			run slide show ss
 		end if
 	end tell
 end run`
