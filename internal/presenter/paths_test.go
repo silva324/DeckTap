@@ -23,4 +23,7 @@ func TestNormalizeMacPath(t *testing.T) {
 	if CleanText("a\rb\vc\r\n") != "a\nb\nc" {
 		t.Fatal("CleanText")
 	}
+	if CleanText("missing value") != "" || CleanText("<missing value>") != "" || CleanText("MISSING VALUE") != "" {
+		t.Fatal("CleanText did not scrub missing value")
+	}
 }

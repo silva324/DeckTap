@@ -58,10 +58,15 @@ var (
 	ErrNotRunning  = errors.New("PowerPoint is not running")
 )
 
-// CleanText normalises PowerPoint line endings (\r paragraphs, \v soft breaks).
+// CleanText normalises PowerPoint line endings (\r paragraphs, \v soft breaks)
+// and scrubs AppleScript missing value tokens.
 func CleanText(s string) string {
 	s = strings.ReplaceAll(s, "\r\n", "\n")
 	s = strings.ReplaceAll(s, "\r", "\n")
 	s = strings.ReplaceAll(s, "\v", "\n")
-	return strings.TrimSpace(s)
+	s = strings.TrimSpace(s)
+	if strings.EqualFold(s, "missing value") || strings.EqualFold(s, "<missing value>") {
+		return ""
+	}
+	return s
 }
