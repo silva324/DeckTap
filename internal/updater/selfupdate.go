@@ -241,9 +241,55 @@ func ReplaceBinary(targetPath string, newBytes []byte) error {
 		if err := os.Rename(tempPath, targetPath); err != nil {
 			return fmt.Errorf("failed to atomically rename executable: %w", err)
 		}
+		if runtime.GOOS == "darwin" {
+			// Ad-hoc re-sign replaced binary on macOS so Gatekeeper / launchd accepts it immediately
+			_ = exec.Command("codesign", "--force", "--sign", "-", targetPath).Run()
+		}
 	}
 
 	success = true
+	return nil
+}
+
+// ValidateExecutable verifies that binaryBytes is a valid native executable for the target OS.
+// It detects and prevents corrupted files, truncated payloads, or HTML error pages from replacing the app.
+func ValidateExecutable(goos string, b []byte) error {
+	if len(b) < 4 {
+		return fmt.Errorf("binary payload too small (%d bytes)", len(b))
+	}
+	// Reject HTML, XML, or text payloads
+	if bytes.HasPrefix(b, []byte("<!DOCTYPE")) || bytes.HasPrefix(b, []byte("<html")) ||
+		bytes.HasPrefix(b, []byte("<?xml")) || bytes.HasPrefix(b, []byte("{\n")) ||
+		bytes.HasPrefix(b, []byte("{\"")) {
+		return fmt.Errorf("downloaded content is text/html, not a native executable binary")
+	}
+	switch goos {
+	case "darwin":
+		// Mach-O Magic Numbers:
+		// 0xFEEDFACE (32-bit), 0xFEEDFACF (64-bit), 0xCAFEBABE (Universal FAT binary)
+		// and little-endian: 0xCEFAEDFE, 0xCFFAEDFE, 0xBEBAFECA
+		magic32BE := []byte{0xfe, 0xed, 0xfa, 0xce}
+		magic64BE := []byte{0xfe, 0xed, 0xfa, 0xcf}
+		magicFatBE := []byte{0xca, 0xfe, 0xba, 0xbe}
+		magic32LE := []byte{0xce, 0xfa, 0xed, 0xfe}
+		magic64LE := []byte{0xcf, 0xfa, 0xed, 0xfe}
+		magicFatLE := []byte{0xbe, 0xba, 0xfe, 0xca}
+		if !bytes.Equal(b[:4], magic32BE) && !bytes.Equal(b[:4], magic64BE) &&
+			!bytes.Equal(b[:4], magicFatBE) && !bytes.Equal(b[:4], magic32LE) &&
+			!bytes.Equal(b[:4], magic64LE) && !bytes.Equal(b[:4], magicFatLE) {
+			return fmt.Errorf("invalid Mach-O executable header")
+		}
+	case "windows":
+		// PE Magic: "MZ"
+		if len(b) < 2 || b[0] != 'M' || b[1] != 'Z' {
+			return fmt.Errorf("invalid Windows PE executable header")
+		}
+	case "linux":
+		// ELF Magic: "\x7fELF"
+		if len(b) < 4 || b[0] != 0x7f || b[1] != 'E' || b[2] != 'L' || b[3] != 'F' {
+			return fmt.Errorf("invalid Linux ELF executable header")
+		}
+	}
 	return nil
 }
 
@@ -306,13 +352,13 @@ func (s *Service) StartSelfUpdate(ctx context.Context) error {
 	s.status.Error = ""
 	s.mu.Unlock()
 
-	if asset.BrowserDownloadURL == "" && s.status.DownloadURL != "" {
+	if asset.BrowserDownloadURL == "" && s.status.DownloadURL != "" && !strings.Contains(s.status.DownloadURL, "/releases/tag/") {
 		asset.BrowserDownloadURL = s.status.DownloadURL
 		asset.Name = s.status.AssetName
 		asset.Size = s.status.AssetSize
 	}
-	if asset.BrowserDownloadURL == "" {
-		s.setError("no compatible update package found for this platform")
+	if asset.BrowserDownloadURL == "" || strings.Contains(asset.BrowserDownloadURL, "/releases/tag/") {
+		s.setError("no compatible update package found for this platform (assets may still be preparing)")
 		return s.OpenReleasePage()
 	}
 
@@ -420,7 +466,7 @@ func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL s
 	} else if strings.HasSuffix(nameLower, ".zip") {
 		extractedBinary, err = ExtractBinaryFromZip(rawBytes, targetNames)
 	} else {
-		extractedBinary = rawBytes
+		err = fmt.Errorf("unsupported update asset format: %s", asset.Name)
 	}
 
 	if err != nil {
@@ -428,7 +474,13 @@ func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL s
 		return
 	}
 
-	// 4. Replacing binary
+	// 4. Validating executable binary before installation to protect against corrupted downloads
+	if vErr := ValidateExecutable(runtime.GOOS, extractedBinary); vErr != nil {
+		s.setError(fmt.Sprintf("binary validation failed: %v", vErr))
+		return
+	}
+
+	// 5. Replacing binary
 	s.setProgress(92)
 	replaceFn := s.replaceBinary
 	if replaceFn == nil {
@@ -439,7 +491,7 @@ func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL s
 		return
 	}
 
-	// 5. Restarting
+	// 6. Restarting
 	s.setState("restarting", 100)
 
 	relaunchFn := s.relaunch
