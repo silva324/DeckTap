@@ -99,6 +99,15 @@ Download the latest **Universal `.dmg`** from [Releases](https://github.com/silv
 2. Open the disk image and drag **DeckTap** to your `/Applications` folder.
 3. When prompted on first launch, allow DeckTap automation permissions in **System Settings › Privacy & Security › Automation**.
 
+> [!TIP]
+> **First-Launch on macOS (Gatekeeper Note):**  
+> Because DeckTap is free, community open-source software and not signed with an Apple Developer Program ID certificate (\$99/year), macOS Gatekeeper may show *"Apple could not verify DeckTap.app"* on first launch.
+> - **Method 1 (System Settings):** Open **System Settings › Privacy & Security**, scroll down to **Security**, and click **Open Anyway**.
+> - **Method 2 (Right-Click):** In Finder, right-click (or <kbd>Control</kbd>-click) **DeckTap.app** in `/Applications` $\to$ click **Open** $\to$ click **Open**.
+> - **Method 3 (Terminal):** Run `xattr -cr /Applications/DeckTap.app`
+> 
+> *(macOS only asks once on first launch; subsequent launches open with a normal double-click)*.
+
 ### Windows
 Download the latest **`DeckTap-*-windows-amd64.zip`** from [Releases](https://github.com/silva324/DeckTap/releases):
 1. Extract the `.zip` archive.

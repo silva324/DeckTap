@@ -73,7 +73,11 @@ cat <<EOF > "${APP_BUNDLE}/Contents/Info.plist"
 </plist>
 EOF
 
-# 4. Create DMG
+# 4. Ad-Hoc Sign App Bundle
+echo "==> Ad-hoc signing ${APP_BUNDLE}..."
+codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null || true
+
+# 5. Create DMG
 echo "==> Packaging DMG: ${DMG_NAME}..."
 DMG_STAGING="${DIST_DIR}/dmg_staging"
 rm -rf "${DMG_STAGING}" "${DIST_DIR}/${DMG_NAME}"
@@ -82,6 +86,34 @@ mkdir -p "${DMG_STAGING}"
 cp -R "${APP_BUNDLE}" "${DMG_STAGING}/"
 ln -s /Applications "${DMG_STAGING}/Applications"
 
+cat << 'NOTE_EOF' > "${DMG_STAGING}/FIRST_LAUNCH_NOTE.txt"
+======================================================================
+DeckTap — macOS First Launch Guide (Gatekeeper Note)
+======================================================================
+
+DeckTap is free, community open-source software and is not signed
+with a paid Apple Developer ID certificate ($99/year).
+
+If macOS displays "Apple could not verify DeckTap.app is free of malware":
+
+Method 1 (System Settings — Recommended):
+  1. Drag DeckTap to Applications.
+  2. Open "System Settings" > "Privacy & Security".
+  3. Scroll down to the "Security" section.
+  4. Click "Open Anyway" next to the DeckTap notification.
+
+Method 2 (Right-Click):
+  1. Drag DeckTap to Applications.
+  2. Right-click (or Control-click) "DeckTap.app" in Finder.
+  3. Select "Open", then click "Open" in the security prompt.
+
+Method 3 (Terminal):
+  Run: xattr -cr /Applications/DeckTap.app
+
+(macOS only asks once on first launch!)
+======================================================================
+NOTE_EOF
+
 hdiutil create -volname "${APP_NAME}" \
     -srcfolder "${DMG_STAGING}" \
     -ov -format UDZO \
@@ -89,7 +121,7 @@ hdiutil create -volname "${APP_NAME}" \
 
 rm -rf "${DMG_STAGING}"
 
-# 5. Create Standalone Universal Tarball
+# 6. Create Standalone Universal Tarball
 echo "==> Packaging Tarball: ${TAR_NAME}..."
 (
     cd "build"
