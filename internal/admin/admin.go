@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"pptx-remote/internal/e2ee"
@@ -43,11 +44,14 @@ type Server struct {
 	reset        func()
 	applyUpdate  func() error
 	manualUpdate func() error
+	mu           sync.Mutex
 	quit         func()
 }
 
 // SetQuitHandler registers the callback invoked when the user quits from the desktop interface.
 func (s *Server) SetQuitHandler(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.quit = fn
 }
 
@@ -164,10 +168,13 @@ func (s *Server) doQuit(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-	if s.quit != nil {
+	s.mu.Lock()
+	q := s.quit
+	s.mu.Unlock()
+	if q != nil {
 		go func() {
 			time.Sleep(150 * time.Millisecond)
-			s.quit()
+			q()
 		}()
 	}
 }

@@ -77,16 +77,21 @@ func TestAdminPageGuarded(t *testing.T) {
 	}
 
 	// Test quit endpoint
-	quitCalled := false
+	quitCh := make(chan struct{}, 1)
 	s2.SetQuitHandler(func() {
-		quitCalled = true
+		select {
+		case quitCh <- struct{}{}:
+		default:
+		}
 	})
 	resQuit, err := http.Post(s2.URL()+"quit", "application/json", nil)
 	if err != nil || resQuit.StatusCode != 200 {
 		t.Fatalf("quit endpoint failed: %v", err)
 	}
-	time.Sleep(200 * time.Millisecond)
-	if !quitCalled {
+	select {
+	case <-quitCh:
+		// success
+	case <-time.After(1 * time.Second):
 		t.Fatal("expected quit handler to be called")
 	}
 }
