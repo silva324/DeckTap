@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/silva324/DeckTap/compare/v0.5.0...v0.6.0) (2026-10-21)
+
+
+### Features
+
+* **webui:** allow scanning new QR code when reconnecting and enhance PWA launch handling ([#21](https://github.com/silva324/DeckTap/issues/21)) ([7131845](https://github.com/silva324/DeckTap/commit/71318457322c2361383395e7bdd664aa48585823))
+
+
+### Bug Fixes
+
+* **updater:** prevent html release page download and validate executable headers before replacement ([#23](https://github.com/silva324/DeckTap/issues/23)) ([512ff67](https://github.com/silva324/DeckTap/commit/512ff67aac4649063ec4b90902741cd4b7f9940e))
+
 ## [0.5.0](https://github.com/silva324/DeckTap/compare/v0.4.0...v0.5.0) (2026-10-21)
 
 
