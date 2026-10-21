@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -166,7 +167,15 @@ func TestReplaceBinary(t *testing.T) {
 }
 
 func TestSelfUpdateFullWorkflow(t *testing.T) {
-	newBinaryContent := []byte("decktap-v2.2.0-binary-payload")
+	var newBinaryContent []byte
+	switch runtime.GOOS {
+	case "darwin":
+		newBinaryContent = append([]byte{0xca, 0xfe, 0xba, 0xbe}, []byte("-decktap-v2.2.0-binary-payload")...)
+	case "windows":
+		newBinaryContent = append([]byte{'M', 'Z'}, []byte("-decktap-v2.2.0-binary-payload")...)
+	default:
+		newBinaryContent = append([]byte{0x7f, 'E', 'L', 'F'}, []byte("-decktap-v2.2.0-binary-payload")...)
+	}
 	assetContent := createTarGz(t, "decktap-universal", newBinaryContent)
 
 	sum := sha256.Sum256(assetContent)
@@ -327,5 +336,47 @@ func TestSelfUpdateChecksumMismatch(t *testing.T) {
 	}
 	if replaceCalled {
 		t.Fatal("replaceBinary must NOT be called when checksum fails")
+	}
+}
+
+func TestValidateExecutable(t *testing.T) {
+	// Rejection of HTML error pages
+	htmlPayload := []byte("<!DOCTYPE html><html><head><title>Release v0.5.0</title></head><body>404 Not Found</body></html>")
+	if err := ValidateExecutable("darwin", htmlPayload); err == nil {
+		t.Fatal("expected ValidateExecutable to reject HTML document on darwin")
+	}
+	if err := ValidateExecutable("windows", htmlPayload); err == nil {
+		t.Fatal("expected ValidateExecutable to reject HTML document on windows")
+	}
+	if err := ValidateExecutable("linux", htmlPayload); err == nil {
+		t.Fatal("expected ValidateExecutable to reject HTML document on linux")
+	}
+
+	// Rejection of tiny payload
+	if err := ValidateExecutable("darwin", []byte("a")); err == nil {
+		t.Fatal("expected error on tiny payload")
+	}
+
+	// Valid Mach-O FAT / 64-bit headers
+	fatHeader := []byte{0xca, 0xfe, 0xba, 0xbe, 0x00, 0x00}
+	if err := ValidateExecutable("darwin", fatHeader); err != nil {
+		t.Fatalf("expected valid darwin FAT binary, got: %v", err)
+	}
+
+	macho64Header := []byte{0xcf, 0xfa, 0xed, 0xfe, 0x00, 0x00}
+	if err := ValidateExecutable("darwin", macho64Header); err != nil {
+		t.Fatalf("expected valid darwin Mach-O 64-bit binary, got: %v", err)
+	}
+
+	// Valid Windows PE header
+	peHeader := []byte{'M', 'Z', 0x90, 0x00, 0x03}
+	if err := ValidateExecutable("windows", peHeader); err != nil {
+		t.Fatalf("expected valid Windows PE binary, got: %v", err)
+	}
+
+	// Valid Linux ELF header
+	elfHeader := []byte{0x7f, 'E', 'L', 'F', 0x02}
+	if err := ValidateExecutable("linux", elfHeader); err != nil {
+		t.Fatalf("expected valid Linux ELF binary, got: %v", err)
 	}
 }

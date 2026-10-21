@@ -170,7 +170,7 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	matchedAsset, _ := SelectAsset(rel.Assets, runtime.GOOS, runtime.GOARCH)
 	updateAsset, _ := SelectUpdateAsset(rel.Assets, runtime.GOOS, runtime.GOARCH)
 
-	downloadURL := rel.HTMLURL
+	downloadURL := ""
 	assetName := ""
 	var assetSize int64
 	if updateAsset.BrowserDownloadURL != "" {
