@@ -43,6 +43,12 @@ type Server struct {
 	reset        func()
 	applyUpdate  func() error
 	manualUpdate func() error
+	quit         func()
+}
+
+// SetQuitHandler registers the callback invoked when the user quits from the desktop interface.
+func (s *Server) SetQuitHandler(fn func()) {
+	s.quit = fn
 }
 
 func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server, error) {
@@ -65,6 +71,7 @@ func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server
 	mux.HandleFunc("/"+s.secret+"/status", s.apiStatus)
 	mux.HandleFunc("/"+s.secret+"/update/apply", s.doUpdateApply)
 	mux.HandleFunc("/"+s.secret+"/update/manual", s.doUpdateManual)
+	mux.HandleFunc("/"+s.secret+"/quit", s.doQuit)
 	s.srv = &http.Server{Handler: s.guard(mux), ReadHeaderTimeout: 5 * time.Second}
 	go s.srv.Serve(ln)
 	return s, nil
@@ -144,6 +151,25 @@ func (s *Server) doUpdateManual(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
+func (s *Server) doQuit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "http://"+s.ln.Addr().String() && o != "null" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	if s.quit != nil {
+		go func() {
+			time.Sleep(150 * time.Millisecond)
+			s.quit()
+		}()
+	}
 }
 
 func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
@@ -379,6 +405,42 @@ body {
 .btn:active { transform: scale(0.97); }
 .btn-primary { background: var(--accent); color: #042f2e; border: none; font-weight: 700; }
 .btn-primary:hover { background: #34d399; }
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fff;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-header-quit {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all .15s ease;
+  user-select: none;
+}
+.btn-header-quit:hover {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
 .tunnel-info {
   font-size: 11px;
   color: var(--muted);
@@ -509,15 +571,16 @@ body {
       </svg>
       DeckTap
     </div>
-    <div class="badge-status `)
+    <div class="header-right">
+      <div class="badge-status `)
 	if v.Problem {
 		b.WriteString("warn")
 	} else if v.Paired {
 		b.WriteString("connected")
 	}
 	b.WriteString(`" id="badge-status">
-      <span class="dot"></span>
-      <span id="badge-text">`)
+        <span class="dot"></span>
+        <span id="badge-text">`)
 	if v.Paired {
 		b.WriteString("Phone Connected")
 	} else if v.Problem {
@@ -526,6 +589,8 @@ body {
 		b.WriteString("Ready to Pair")
 	}
 	b.WriteString(`</span>
+      </div>
+      <button type="button" class="btn-header-quit" id="btn-header-quit" title="Quit DeckTap completely">⏻ Quit</button>
     </div>
   </div>
 
@@ -593,9 +658,10 @@ body {
 
   <div class="actions">
     <form method="post" action="/` + s.secret + `/reset" style="display:inline;">
-      <button type="submit" class="btn" title="Create a fresh pairing code and disconnect previous devices">🔄 New Pairing Code</button>
+      <button type="submit" class="btn" title="Create a fresh pairing code and disconnect previous devices">🔄 New Code</button>
     </form>
-    <button type="button" class="btn" id="btn-copy-link">📋 Copy Pairing Link</button>
+    <button type="button" class="btn" id="btn-copy-link">📋 Copy Link</button>
+    <button type="button" class="btn btn-danger" id="btn-quit" title="Quit DeckTap completely">⏻ Quit</button>
   </div>
 
   <div class="tunnel-info" id="tunnel-info">`)
@@ -816,6 +882,24 @@ document.getElementById("btn-copy-link").addEventListener("click", () => {
     });
   }
 });
+
+async function quitDeckTap() {
+  if (!confirm("Are you sure you want to quit DeckTap?")) return;
+  const btns = [document.getElementById("btn-quit"), document.getElementById("btn-header-quit")];
+  btns.forEach(b => { if (b) { b.disabled = true; b.textContent = "⏳ Quitting…"; } });
+  try {
+    await fetch("quit", { method: "POST" });
+  } catch {}
+  document.body.innerHTML = '<div style="text-align:center;padding:50px 20px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#94a3b8;">' +
+    '<div style="font-size:44px;margin-bottom:12px;">👋</div>' +
+    '<h2 style="color:#fff;margin-bottom:8px;font-size:20px;">DeckTap has shut down</h2>' +
+    '<p style="font-size:14px;color:#64748b;">The application has exited cleanly. You may close this window.</p>' +
+    '</div>';
+}
+const bQuit = document.getElementById("btn-quit");
+if (bQuit) bQuit.addEventListener("click", quitDeckTap);
+const bHQuit = document.getElementById("btn-header-quit");
+if (bHQuit) bHQuit.addEventListener("click", quitDeckTap);
 </script>
 </body>
 </html>`)

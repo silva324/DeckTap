@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAdminPageGuarded(t *testing.T) {
@@ -73,5 +74,19 @@ func TestAdminPageGuarded(t *testing.T) {
 	resApply, err := http.Post(s2.URL()+"update/apply", "application/json", nil)
 	if err != nil || resApply.StatusCode != 200 || !applied {
 		t.Fatalf("update/apply endpoint failed: applied=%v, err=%v", applied, err)
+	}
+
+	// Test quit endpoint
+	quitCalled := false
+	s2.SetQuitHandler(func() {
+		quitCalled = true
+	})
+	resQuit, err := http.Post(s2.URL()+"quit", "application/json", nil)
+	if err != nil || resQuit.StatusCode != 200 {
+		t.Fatalf("quit endpoint failed: %v", err)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if !quitCalled {
+		t.Fatal("expected quit handler to be called")
 	}
 }
