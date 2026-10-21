@@ -22,6 +22,7 @@ package nativewin
 static NSWindow *pairingWin = nil;
 static WKWebView *pairingWeb = nil;
 static DeckTapWindowDelegate *winDel = nil;
+static id keyMonitor = nil;
 
 static void openNativeWindow(const char *cUrl, const char *cTitle, int w, int h) {
     if (!cUrl) return;
@@ -30,6 +31,25 @@ static void openNativeWindow(const char *cUrl, const char *cTitle, int w, int h)
     NSURL *nsUrl = [NSURL URLWithString:urlStr];
 
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (keyMonitor == nil) {
+            keyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
+                if (([event modifierFlags] & NSEventModifierFlagDeviceIndependentFlagsMask) == NSEventModifierFlagCommand) {
+                    NSString *chars = [event charactersIgnoringModifiers];
+                    if ([chars isEqualToString:@"q"] || [chars isEqualToString:@"Q"]) {
+                        [NSApp terminate:nil];
+                        return nil;
+                    }
+                    if ([chars isEqualToString:@"w"] || [chars isEqualToString:@"W"]) {
+                        if (pairingWin != nil) {
+                            [pairingWin orderOut:nil];
+                            return nil;
+                        }
+                    }
+                }
+                return event;
+            }];
+        }
+
         if (pairingWin == nil) {
             NSRect screenRect = [[NSScreen mainScreen] visibleFrame];
             CGFloat width = (CGFloat)w;

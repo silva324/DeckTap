@@ -211,6 +211,7 @@ func (h *Host) Start(parent context.Context) error {
 	if err != nil {
 		return err
 	}
+	a.SetQuitHandler(h.Quit)
 	h.admin = a
 	h.updater.StartBackgroundCheck(h.ctx, 4*time.Hour)
 	go h.Sync.Run(h.ctx)
@@ -480,6 +481,16 @@ func (h *Host) ApplyUpdate() error { return h.updater.ApplyUpdate() }
 
 // Updater returns the updater service instance.
 func (h *Host) Updater() *updater.Service { return h.updater }
+
+// Quit gracefully terminates DeckTap and exits the process.
+func (h *Host) Quit() {
+	h.log.Info("Quit requested from desktop interface")
+	go func() {
+		h.Shutdown()
+		time.Sleep(100 * time.Millisecond)
+		os.Exit(0)
+	}()
+}
 
 // Shutdown tears everything down (idempotent): phone, tunnel, servers, controller.
 func (h *Host) Shutdown() {
