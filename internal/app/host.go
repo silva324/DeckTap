@@ -153,29 +153,38 @@ func (h *Host) notify() {
 func (h *Host) allowedOrigin(origin string) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.publicURL != "" && strings.EqualFold(origin, h.publicURL) {
+
+	cleanOrigin := strings.TrimRight(strings.ToLower(origin), "/")
+
+	// Allow null origin (sent by iOS Safari in private browsing, standalone Web Clips, or strict privacy)
+	// and apple-web-clip schemes. All WebSocket traffic is end-to-end encrypted with AES-256-GCM.
+	if cleanOrigin == "null" || cleanOrigin == "" || strings.HasPrefix(cleanOrigin, "apple-web-clip:") {
+		return true
+	}
+
+	if h.publicURL != "" && strings.EqualFold(cleanOrigin, strings.TrimRight(strings.ToLower(h.publicURL), "/")) {
 		return true
 	}
 	// Allow canonical GitHub Pages PWA origin
-	if strings.EqualFold(origin, "https://silva324.github.io") {
+	if cleanOrigin == "https://silva324.github.io" {
 		return true
 	}
 	// Allow custom PWAURL origin if configured
 	if h.cfg.PWAURL != "" && h.cfg.PWAURL != "direct" {
 		if u, err := url.Parse(h.cfg.PWAURL); err == nil && u.Scheme != "" && u.Host != "" {
-			pwaOrigin := fmt.Sprintf("%s://%s", u.Scheme, u.Host)
-			if strings.EqualFold(origin, pwaOrigin) {
+			pwaOrigin := strings.TrimRight(strings.ToLower(fmt.Sprintf("%s://%s", u.Scheme, u.Host)), "/")
+			if cleanOrigin == pwaOrigin {
 				return true
 			}
 		}
 	}
 	// Allow trycloudflare tunnel origins (e.g. from previously installed PWA or direct tunnel access)
-	if strings.HasSuffix(strings.ToLower(origin), ".trycloudflare.com") {
+	if strings.HasSuffix(cleanOrigin, ".trycloudflare.com") {
 		return true
 	}
 	if h.ln != nil {
 		port := strconv.Itoa(h.ln.Addr().(*net.TCPAddr).Port)
-		if origin == "http://127.0.0.1:"+port || origin == "http://localhost:"+port {
+		if cleanOrigin == "http://127.0.0.1:"+port || cleanOrigin == "http://localhost:"+port {
 			return true
 		}
 	}

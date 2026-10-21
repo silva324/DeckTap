@@ -247,7 +247,8 @@ body.no-preview .preview { display: none; }
 @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 320px; }
 .key-btn { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px;
-  font-size: 22px; font-weight: 600; height: 54px; display: flex; align-items: center; justify-content: center; user-select: none; }
+  font-size: 22px; font-weight: 600; height: 54px; display: flex; align-items: center; justify-content: center;
+  user-select: none; -webkit-user-select: none; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .key-btn:active { background: var(--accent); color: var(--accent-ink); }
 .pin-status-text { min-height: 20px; font-size: 13px; font-weight: 600; color: var(--danger); margin-top: 6px; }
 

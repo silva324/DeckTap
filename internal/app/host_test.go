@@ -192,6 +192,15 @@ func TestTunnelModeLockoutAndReset(t *testing.T) {
 	if !h.allowedOrigin("https://silva324.github.io") {
 		t.Fatal("expected canonical PWA origin https://silva324.github.io to be allowed")
 	}
+	if !h.allowedOrigin("https://silva324.github.io/") {
+		t.Fatal("expected canonical PWA origin with trailing slash to be allowed")
+	}
+	if !h.allowedOrigin("null") {
+		t.Fatal("expected 'null' origin from iOS Safari to be allowed")
+	}
+	if !h.allowedOrigin("apple-web-clip://") {
+		t.Fatal("expected apple-web-clip origin to be allowed")
+	}
 	if h.allowedOrigin("https://evil.example") {
 		t.Fatal("foreign origin should be rejected")
 	}
