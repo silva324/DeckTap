@@ -22,7 +22,11 @@ You are an expert systems and security engineer contributing to **DeckTap**. Fol
 - **Do NOT introduce npm, Webpack, Vite, or external script CDNs (`unpkg`, `cdnjs`).**
 - Use `sessionStorage` with safe fallback to an in-memory dictionary to support restricted camera WebViews (e.g. Google Lens, Android QR scanners).
 
-## 4. Git, Branching & Pull Request Rules (Mandatory for Agents)
+## 4. Application Name & Branding Invariant
+- The application name is exclusively **DeckTap** (binary executable name `decktap` on macOS/Linux, `DeckTap.exe` on Windows; local config directory `~/.decktap`).
+- **NEVER** refer to, display, or output `"pptx-remote"` in user-facing logs, CLI output, UI elements, or documentation.
+
+## 5. Git, Branching & Pull Request Rules (Mandatory for Agents)
 - **NEVER commit directly to `main`:** All work (features, bug fixes, documentation, refactors) MUST be done on a dedicated branch branched off `main`:
   - Features: `feat/short-description`
   - Bug fixes: `fix/short-description`

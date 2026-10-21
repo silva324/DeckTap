@@ -54,6 +54,10 @@ All commit messages and PR titles must follow [Conventional Commits](https://www
 - The mobile web client in `internal/webui/static/` is embedded into the Go binary (`//go:embed`).
 - **DO NOT** introduce npm, Webpack, Vite, Tailwind CLI, or external script CDNs (`unpkg`, `cdnjs`). Keep it pure vanilla ES6+ and native browser Web APIs.
 
+### 🏷️ Application Name & Branding Invariant
+- The application name is exclusively **DeckTap** (binary executable name `decktap` on macOS/Linux, `DeckTap.exe` on Windows; local config directory `~/.decktap`).
+- **NEVER** refer to, display, or output `"pptx-remote"` in user-facing logs, CLI banners, UI elements, or documentation.
+
 ---
 
 ## 3. Verification & Linting Commands for Agents

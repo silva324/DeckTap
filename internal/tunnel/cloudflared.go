@@ -81,15 +81,21 @@ func FindBinary(explicit string) (string, error) {
 	if err != nil {
 		homeDir = "."
 	}
-	cacheDir := filepath.Join(homeDir, ".pptx-remote", "bin")
 	binName := "cloudflared"
 	if runtime.GOOS == "windows" {
 		binName = "cloudflared.exe"
 	}
+	cacheDir := filepath.Join(homeDir, ".decktap", "bin")
 	cachedPath := filepath.Join(cacheDir, binName)
 
 	if st, err := os.Stat(cachedPath); err == nil && !st.IsDir() {
 		return cachedPath, nil
+	}
+
+	// Legacy cache directory fallback
+	legacyPath := filepath.Join(homeDir, ".pptx-remote", "bin", binName)
+	if st, err := os.Stat(legacyPath); err == nil && !st.IsDir() {
+		return legacyPath, nil
 	}
 
 	if err := os.MkdirAll(cacheDir, 0755); err == nil {
@@ -147,7 +153,7 @@ func downloadRelease(targetPath string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "pptx-remote/1.0")
+	req.Header.Set("User-Agent", "DeckTap/1.0")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

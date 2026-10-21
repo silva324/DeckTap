@@ -46,7 +46,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "print version")
 	flag.Parse()
 	if *showVersion {
-		fmt.Println("pptx-remote", version)
+		fmt.Println("DeckTap", version)
 		return
 	}
 
@@ -191,7 +191,7 @@ func setupLogging(interactive, verbose bool) (*slog.Logger, func()) {
 	if !interactive {
 		dir := logDir()
 		if err := os.MkdirAll(dir, 0o700); err == nil {
-			if f, err := os.OpenFile(filepath.Join(dir, "pptx-remote.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err == nil {
+			if f, err := os.OpenFile(filepath.Join(dir, "decktap.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err == nil {
 				w, closeFn = f, func() { f.Close() }
 			}
 		}
@@ -203,21 +203,21 @@ func logDir() string {
 	home, _ := os.UserHomeDir()
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Logs", "PowerPointRemote")
+		return filepath.Join(home, "Library", "Logs", "DeckTap")
 	case "windows":
 		if d := os.Getenv("LOCALAPPDATA"); d != "" {
-			return filepath.Join(d, "PowerPointRemote")
+			return filepath.Join(d, "DeckTap")
 		}
 	}
 	if d, err := os.UserCacheDir(); err == nil {
-		return filepath.Join(d, "pptx-remote")
+		return filepath.Join(d, "decktap")
 	}
 	return os.TempDir()
 }
 
 func fatal(log *slog.Logger, err error) {
 	log.Error("fatal", "err", err)
-	fmt.Fprintln(os.Stderr, "pptx-remote:", err)
+	fmt.Fprintln(os.Stderr, "DeckTap:", err)
 	os.Exit(1)
 }
 

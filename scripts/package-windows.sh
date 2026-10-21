@@ -14,7 +14,7 @@ mkdir -p "${DIST_DIR}/bin"
 # 1. Compile Windows x64 binary with GUI subsystem (no console window)
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -buildvcs=false \
     -ldflags "-s -w -H=windowsgui -X main.version=${VERSION}" \
-    -o "${DIST_DIR}/bin/pptx-remote.exe" \
+    -o "${DIST_DIR}/bin/DeckTap.exe" \
     ./cmd/pptx-remote
 
 # 2. Package ZIP
@@ -22,9 +22,9 @@ echo "==> Packaging ZIP: ${ZIP_NAME}..."
 rm -f "${DIST_DIR}/${ZIP_NAME}"
 (
     cd "${DIST_DIR}/bin"
-    zip -9 "../${ZIP_NAME}" pptx-remote.exe
+    zip -9 "../${ZIP_NAME}" DeckTap.exe
 )
 
 echo "==> Successfully created:"
-echo "    EXE: ${DIST_DIR}/bin/pptx-remote.exe"
+echo "    EXE: ${DIST_DIR}/bin/DeckTap.exe"
 echo "    ZIP: ${DIST_DIR}/${ZIP_NAME} ($(du -sh "${DIST_DIR}/${ZIP_NAME}" | cut -f1))"
