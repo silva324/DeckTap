@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Code Style
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Go Vet
+        run: go vet ./...
+
+      - name: Verify Go Formatting
+        run: |
+          UNFORMATTED=$(gofmt -l -s .)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "The following files are not formatted with gofmt -s:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Verify Web Client Syntax
+        run: node -c internal/webui/static/app.js internal/webui/static/crypto.js
+
+  security:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run Govulncheck
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: '1.23'
+          package-path: './...'
+        continue-on-error: true
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run Tests with Race Detector (macOS & Linux)
+        if: matrix.os != 'windows-latest'
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Run Tests (Windows)
+        if: matrix.os == 'windows-latest'
+        run: go test -v ./...
+
+      - name: Upload Coverage Artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage
+          path: coverage.out
+          retention-days: 7
+
+  cross-compile-check:
+    name: Packaging Dry-Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Install Zip
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Verify Windows Package Build
+        run: ./scripts/package-windows.sh
+
+      - name: Verify Linux Package Build
+        run: ./scripts/package-linux.sh

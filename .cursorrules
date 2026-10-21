@@ -1,0 +1,38 @@
+# DeckTap — AI Agent & Developer Guidelines
+
+You are an expert systems and security engineer contributing to **DeckTap**. Follow these strict architectural invariants and engineering standards:
+
+## 1. Security Invariants (`SPEC-SEC-001`)
+- **End-to-End Encryption (E2EE):** All communication between the host agent and mobile client is encrypted with **AES-256-GCM**.
+- **No Plaintext Leakage:** Plaintext slide titles, speaker notes, and presentation control commands MUST NEVER be sent unencrypted or logged to stdout/stderr.
+- **Out-of-Band Secrets:** Cryptographic secrets (`MasterKey` $K_{enc}$ and `PairingToken` $T_{pair}$) are transmitted ONLY via the URI `#fragment` in the QR code. Never put secrets into query parameters or HTTP headers.
+- **Anti-Shoulder-Surfing PIN:** The 4-digit visual PIN displayed on the laptop screen MUST be verified in constant time (`crypto/subtle.ConstantTimeCompare`) before issuing a `SessionID`.
+- **Brute-Force Protection:** 5 consecutive failed PIN attempts trigger automatic rate-limiting and temporary lockout.
+
+## 2. Platform Presenter Safety
+- **macOS (AppleScript):**
+  - Always guard queries with `if application "Microsoft PowerPoint" is not running then return "0"` to prevent osascript from launching PowerPoint unprompted or hanging on IPC timeouts.
+  - Never use reserved AppleScript keywords/constants (e.g. `out`, `st`, `nt`, `in`) as variable names in AppleScript source.
+  - Do not interpolate user strings into AppleScript sources; pass arguments through `on run argv` or escape delimiters.
+- **Windows (PowerShell COM):**
+  - Run PowerShell hidden using `procutil.SetSysProcAttr` to prevent terminal window flashing.
+
+## 3. Frontend / Web UI Invariants
+- **Zero External JS Dependencies:** The mobile client (`internal/webui/static/`) uses pure vanilla modern ES6+ and standard browser APIs (`window.crypto.subtle`, `WebSocket`).
+- **Do NOT introduce npm, Webpack, Vite, or external script CDNs (`unpkg`, `cdnjs`).**
+- Use `sessionStorage` with safe fallback to an in-memory dictionary to support restricted camera WebViews (e.g. Google Lens, Android QR scanners).
+
+## 4. Git, Branching & Pull Request Rules (Mandatory for Agents)
+- **NEVER commit directly to `main`:** All work (features, bug fixes, documentation, refactors) MUST be done on a dedicated branch branched off `main`:
+  - Features: `feat/short-description`
+  - Bug fixes: `fix/short-description`
+  - Chores / Docs: `chore/short-description` or `docs/short-description`
+- **Always open a Pull Request:** Work must be delivered via Pull Request targeting `main`. Never attempt to bypass branch protection or push unreviewed changes directly to `main`.
+- **Follow Conventional Commits:** All commit messages and PR titles MUST follow [Conventional Commits](https://www.conventionalcommits.org/):
+  - `feat(scope): ...` for new features (triggers MINOR version bump)
+  - `fix(scope): ...` for bug fixes (triggers PATCH version bump)
+  - `docs(scope): ...`, `chore(scope): ...`, `perf(scope): ...`
+- **Pre-PR Verification Checklist:**
+  1. Run `go test ./...` and `go vet ./...`.
+  2. Verify JavaScript syntax: `node -c internal/webui/static/app.js`.
+  3. Ensure no plaintext notes, passwords, or tokens are logged.

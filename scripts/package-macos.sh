@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT_DIR}"
+
+VERSION="${VERSION:-$(git describe --tags --always 2>/dev/null || echo "0.0.1")}"
+CLEAN_VERSION="${VERSION#v}"
+DIST_DIR="${ROOT_DIR}/dist"
+APP_NAME="DeckTap"
+APP_BUNDLE="${DIST_DIR}/${APP_NAME}.app"
+DMG_NAME="DeckTap-${VERSION}-macOS-Universal.dmg"
+TAR_NAME="DeckTap-${VERSION}-macOS-Universal.tar.gz"
+
+echo "==> Building ${APP_NAME} ${VERSION} for macOS (Universal)..."
+mkdir -p "${DIST_DIR}" build
+
+# 1. Generate icon.icns if missing
+if [[ ! -f "build/icon.icns" ]]; then
+    echo "==> Generating icon.icns..."
+    go run ./cmd/make-icon build/icon.iconset
+    iconutil -c icns build/icon.iconset -o build/icon.icns
+fi
+
+# 2. Build binaries (arm64 + amd64)
+echo "==> Compiling darwin/arm64..."
+CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/pptx-remote-arm64" ./cmd/pptx-remote
+
+echo "==> Compiling darwin/amd64..."
+CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/pptx-remote-amd64" ./cmd/pptx-remote
+
+echo "==> Creating Universal Binary..."
+lipo -create -output "build/pptx-remote-universal" "build/pptx-remote-arm64" "build/pptx-remote-amd64"
+chmod +x "build/pptx-remote-universal"
+
+# 3. Create .app Bundle
+echo "==> Assembling ${APP_NAME}.app..."
+rm -rf "${APP_BUNDLE}"
+mkdir -p "${APP_BUNDLE}/Contents/MacOS"
+mkdir -p "${APP_BUNDLE}/Contents/Resources"
+
+cp "build/pptx-remote-universal" "${APP_BUNDLE}/Contents/MacOS/pptx-remote"
+cp "build/icon.icns" "${APP_BUNDLE}/Contents/Resources/icon.icns"
+
+cat <<EOF > "${APP_BUNDLE}/Contents/Info.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>pptx-remote</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.silva324.decktap</string>
+    <key>CFBundleName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleDisplayName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${CLEAN_VERSION}</string>
+    <key>CFBundleVersion</key>
+    <string>${CLEAN_VERSION}</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>DeckTap requires permission to control Microsoft PowerPoint and read speaker notes.</string>
+</dict>
+</plist>
+EOF
+
+# 4. Create DMG
+echo "==> Packaging DMG: ${DMG_NAME}..."
+DMG_STAGING="${DIST_DIR}/dmg_staging"
+rm -rf "${DMG_STAGING}" "${DIST_DIR}/${DMG_NAME}"
+mkdir -p "${DMG_STAGING}"
+
+cp -R "${APP_BUNDLE}" "${DMG_STAGING}/"
+ln -s /Applications "${DMG_STAGING}/Applications"
+
+hdiutil create -volname "${APP_NAME}" \
+    -srcfolder "${DMG_STAGING}" \
+    -ov -format UDZO \
+    "${DIST_DIR}/${DMG_NAME}"
+
+rm -rf "${DMG_STAGING}"
+
+# 5. Create Standalone Universal Tarball
+echo "==> Packaging Tarball: ${TAR_NAME}..."
+(
+    cd "build"
+    tar -czf "${DIST_DIR}/${TAR_NAME}" pptx-remote-universal
+)
+
+echo "==> Successfully created:"
+echo "    App: ${APP_BUNDLE}"
+echo "    DMG: ${DIST_DIR}/${DMG_NAME} ($(du -sh "${DIST_DIR}/${DMG_NAME}" | cut -f1))"
+echo "    Tar: ${DIST_DIR}/${TAR_NAME} ($(du -sh "${DIST_DIR}/${TAR_NAME}" | cut -f1))"

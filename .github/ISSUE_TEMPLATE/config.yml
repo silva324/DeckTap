@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation & Roadmap
+    url: https://github.com/silva324/DeckTap/blob/main/ROADMAP.md
+    about: Review our planned roadmap and architectural specifications.
+  - name: 🔒 Security Policy
+    url: https://github.com/silva324/DeckTap/blob/main/SECURITY.md
+    about: Read how to responsibly report vulnerabilities.

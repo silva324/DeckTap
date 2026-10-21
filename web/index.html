@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0c10">
+  <title>PowerPoint Remote (Zero-Trust E2EE)</title>
+  <style>
+    :root {
+      --bg-primary: #0a0c10;
+      --bg-surface: #141820;
+      --bg-surface-elevated: #1e2430;
+      --border-color: #273042;
+      --text-primary: #f0f4fc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #38bdf8;
+      --accent-blue-hover: #0284c7;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Bar */
+    header {
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .badge-sec {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-sec.offline {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .timer-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-surface-elevated);
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* Screens Container */
+    .screen {
+      display: none !important;
+      flex: 1;
+      flex-direction: column;
+    }
+
+    .screen.active {
+      display: flex !important;
+    }
+
+    /* PIN Verification Screen */
+    #pin-screen {
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .pin-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    .pin-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+
+    .pin-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .pin-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .pin-dots {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .pin-digit {
+      width: 52px;
+      height: 60px;
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      background: var(--bg-surface-elevated);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      transition: all 0.15s ease;
+    }
+
+    .pin-digit.active {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    .pin-digit.error {
+      border-color: var(--accent-red);
+      color: var(--accent-red);
+      animation: shake 0.4s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      width: 100%;
+    }
+
+    .key-btn {
+      background: var(--bg-surface-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      font-size: 22px;
+      font-weight: 600;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.1s, transform 0.05s;
+    }
+
+    .key-btn:active {
+      background: var(--accent-blue);
+      color: #000;
+      transform: scale(0.95);
+    }
+
+    .key-btn.backspace {
+      font-size: 18px;
+      color: var(--text-muted);
+    }
+
+    .status-toast {
+      margin-top: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      min-height: 20px;
+      color: var(--accent-amber);
+      word-break: break-word;
+    }
+
+    /* Main Remote Screen */
+    #remote-screen {
+      overflow: hidden;
+    }
+
+    /* Slide Header */
+    .slide-meta {
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slide-counter {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent-blue);
+      letter-spacing: -0.5px;
+    }
+
+    .slide-total {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .font-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .font-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Speaker Notes View */
+    .notes-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .slide-title-card {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    .notes-body {
+      font-size: 17px;
+      line-height: 1.6;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+
+    .notes-body.empty {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* Next Slide Peek Card */
+    .peek-card {
+      background: rgba(30, 36, 48, 0.6);
+      border: 1px dashed var(--border-color);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-top: auto;
+    }
+
+    .peek-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent-amber);
+      margin-bottom: 4px;
+    }
+
+    .peek-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .peek-notes {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Bottom Control Bar */
+    .controls-dock {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-color);
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .btn-nav {
+      flex: 1;
+      height: 72px;
+      border: none;
+      border-radius: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.08s, filter 0.08s;
+    }
+
+    .btn-nav:active {
+      transform: scale(0.96);
+    }
+
+    .btn-prev {
+      background: var(--bg-surface-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      flex: 0.8;
+    }
+
+    .btn-next {
+      background: var(--accent-blue);
+      color: #050b14;
+      flex: 1.2;
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.35);
+    }
+
+    .quick-tools {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      flex: 1;
+      height: 38px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tool-btn:active {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .tool-btn.active {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--accent-amber);
+      color: var(--accent-amber);
+    }
+
+    /* Modal for Slide Jump */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 340px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .slide-list {
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .slide-item {
+      padding: 10px 12px;
+      background: var(--bg-surface-elevated);
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .slide-item.current {
+      border: 1px solid var(--accent-blue);
+      color: var(--accent-blue);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div id="sec-badge" class="badge-sec">
+      <span>🔒</span>
+      <span id="sec-status">AES-256 E2EE</span>
+    </div>
+    <div id="timer-btn" class="timer-box" title="Tap to pause/reset">
+      <span>⏱</span>
+      <span id="timer-display">00:00</span>
+    </div>
+  </header>
+
+  <!-- Screen 1: Anti-Shoulder-Surfing PIN Verification -->
+  <section id="pin-screen" class="screen active">
+    <div class="pin-card">
+      <div class="pin-icon">🛡️</div>
+      <h1 class="pin-title">Security Verification</h1>
+      <p class="pin-desc">Enter the 4-digit PIN code displayed on the presenter's laptop screen.</p>
+      
+      <div class="pin-dots">
+        <div class="pin-digit" id="pd-0">-</div>
+        <div class="pin-digit" id="pd-1">-</div>
+        <div class="pin-digit" id="pd-2">-</div>
+        <div class="pin-digit" id="pd-3">-</div>
+      </div>
+
+      <div class="keypad">
+        <button class="key-btn" onclick="enterPinDigit('1')">1</button>
+        <button class="key-btn" onclick="enterPinDigit('2')">2</button>
+        <button class="key-btn" onclick="enterPinDigit('3')">3</button>
+        <button class="key-btn" onclick="enterPinDigit('4')">4</button>
+        <button class="key-btn" onclick="enterPinDigit('5')">5</button>
+        <button class="key-btn" onclick="enterPinDigit('6')">6</button>
+        <button class="key-btn" onclick="enterPinDigit('7')">7</button>
+        <button class="key-btn" onclick="enterPinDigit('8')">8</button>
+        <button class="key-btn" onclick="enterPinDigit('9')">9</button>
+        <button class="key-btn tool" onclick="clearPin()">C</button>
+        <button class="key-btn" onclick="enterPinDigit('0')">0</button>
+        <button class="key-btn backspace" onclick="backspacePin()">⌫</button>
+      </div>
+
+      <div id="pin-status" class="status-toast" onclick="retrySubmitPin()" style="cursor:pointer" title="Tap to retry"></div>
+    </div>
+  </section>
+
+  <!-- Screen 2: Remote & Notes Reader -->
+  <section id="remote-screen" class="screen">
+    <div class="slide-meta">
+      <div>
+        <span class="slide-counter" id="cur-slide-num">1</span>
+        <span class="slide-total" id="total-slide-num">/ 1</span>
+      </div>
+      <div class="font-controls">
+        <button class="font-btn" onclick="adjustFontSize(-2)">A-</button>
+        <button class="font-btn" onclick="adjustFontSize(2)">A+</button>
+      </div>
+    </div>
+
+    <div class="notes-container" id="notes-scroll">
+      <div class="slide-title-card" id="slide-title">Loading presentation...</div>
+      <div class="notes-body" id="slide-notes">No speaker notes recorded for this slide.</div>
+
+      <div class="peek-card" id="peek-section">
+        <div class="peek-label">Up Next</div>
+        <div class="peek-title" id="peek-title">Next Slide Title</div>
+        <div class="peek-notes" id="peek-notes">Next slide speaker notes preview...</div>
+      </div>
+    </div>
+
+    <!-- Controls Dock -->
+    <div class="controls-dock">
+      <div class="action-row">
+        <button class="btn-nav btn-prev" onclick="sendAction('PREV_SLIDE')">
+          <span>◀</span>
+          <span>PREV</span>
+        </button>
+        <button class="btn-nav btn-next" onclick="sendAction('NEXT_SLIDE')">
+          <span>NEXT</span>
+          <span>▶</span>
+        </button>
+      </div>
+
+      <div class="quick-tools">
+        <button class="tool-btn" onclick="openJumpModal()">Jump Slide</button>
+        <button class="tool-btn" id="btn-blackout" onclick="sendAction('BLACK_SCREEN')">Blackout (B)</button>
+        <button class="tool-btn" id="btn-whiteout" onclick="sendAction('WHITE_SCREEN')">Whiteout (W)</button>
+        <button class="tool-btn" id="btn-show" onclick="toggleShow()">Start/Exit</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide Jump Modal -->
+  <div class="modal-overlay" id="jump-modal">
+    <div class="modal-box">
+      <h3 class="modal-title">Select Slide to Jump</h3>
+      <div class="slide-list" id="slide-list-container"></div>
+      <button class="tool-btn" onclick="closeJumpModal()">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Cryptographic & Wire State ---
+    let pairingToken = "";
+    let cryptoKey = null;
+    let sessionId = "";
+    let enteredPin = "";
+    let ws = null;
+    let presentationState = null;
+    let currentFontSize = 17;
+    let isShowRunning = false;
+    let isSubmittingPin = false;
+
+    // Timer state
+    let timerSeconds = 0;
+    let timerInterval = null;
+    let timerRunning = false;
+
+    // Safe session storage wrapper for restricted Android WebViews & private browsing
+    function getStoredSession() {
+      try {
+        return sessionStorage.getItem("pptx_session_id") || "";
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function setStoredSession(val) {
+      sessionId = val || "";
+      try {
+        if (val) {
+          sessionStorage.setItem("pptx_session_id", val);
+        } else {
+          sessionStorage.removeItem("pptx_session_id");
+        }
+      } catch (e) {
+        console.warn("Storage restricted in this browser context:", e);
+      }
+    }
+
+    // --- Helpers: Base64URL Conversion ---
+    function base64UrlToUint8(str) {
+      let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4 !== 0) b64 += '=';
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
+    function uint8ToBase64Url(bytes) {
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    // --- Out-of-Band Secrets Extraction ---
+    async function initCrypto() {
+      const hash = window.location.hash.slice(1);
+      if (!hash) {
+        showStatus("Missing pairing secrets in URL hash. Please scan QR code again.");
+        return false;
+      }
+
+      const parts = hash.split('.');
+      if (parts.length !== 2) {
+        showStatus("Invalid pairing URL format.");
+        return false;
+      }
+
+      pairingToken = parts[0];
+      const keyBase64Url = parts[1];
+
+      try {
+        const rawKey = base64UrlToUint8(keyBase64Url);
+        cryptoKey = await window.crypto.subtle.importKey(
+          "raw",
+          rawKey,
+          { name: "AES-GCM" },
+          false,
+          ["encrypt", "decrypt"]
+        );
+        return true;
+      } catch (err) {
+        console.error("Key import failed:", err);
+        showStatus("Cryptographic engine initialization failed: " + (err.message || err));
+        return false;
+      }
+    }
+
+    // --- AES-256-GCM Encrypt & Decrypt ---
+    async function encryptPayload(obj) {
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const encoded = new TextEncoder().encode(JSON.stringify(obj));
+      const ciphertext = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        cryptoKey,
+        encoded
+      );
+      return {
+        iv: uint8ToBase64Url(iv),
+        data: uint8ToBase64Url(new Uint8Array(ciphertext))
+      };
+    }
+
+    async function decryptPayload(ivStr, dataStr) {
+      const iv = base64UrlToUint8(ivStr);
+      const data = base64UrlToUint8(dataStr);
+      const plaintextBuffer = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv },
+        cryptoKey,
+        data
+      );
+      const jsonText = new TextDecoder().decode(plaintextBuffer);
+      return JSON.parse(jsonText);
+    }
+
+    // --- WebSocket Connection ---
+    function connectWS() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${window.location.host}/ws`;
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        setSecBadge(true, "AES-256 E2EE");
+        sessionId = getStoredSession();
+        if (sessionId) {
+          sendResumeRequest();
+        }
+      };
+
+      ws.onclose = () => {
+        setSecBadge(false, "Disconnected");
+        setTimeout(connectWS, 2000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("WS error:", err);
+        setSecBadge(false, "Connection error");
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const envelope = JSON.parse(event.data);
+          const msg = await decryptPayload(envelope.iv, envelope.data);
+          handleIncomingMessage(msg);
+        } catch (err) {
+          console.error("Failed to decrypt incoming message:", err);
+          showStatus("Decryption error: " + (err.message || err));
+        }
+      };
+    }
+
+    async function sendEncrypted(msgObj) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showStatus("Connection offline. Reconnecting...");
+        return;
+      }
+      const envelope = await encryptPayload(msgObj);
+      ws.send(JSON.stringify(envelope));
+    }
+
+    function handleIncomingMessage(msg) {
+      isSubmittingPin = false;
+
+      switch (msg.type) {
+        case "PAIR_RESPONSE":
+        case "RESUME_RESPONSE":
+          if (msg.success) {
+            setStoredSession(msg.session_id);
+            showScreen("remote-screen");
+            if (msg.state) {
+              try { updateUIState(msg.state); } catch (e) { console.error("UI update error:", e); }
+            }
+            startTimer();
+          } else {
+            setStoredSession("");
+            showScreen("pin-screen");
+            triggerPinError(msg.error || "Verification failed");
+          }
+          break;
+
+        case "STATE_UPDATE":
+          // If we receive state updates, ensure remote screen is visible
+          showScreen("remote-screen");
+          if (msg.state) {
+            try { updateUIState(msg.state); } catch (e) { console.error(e); }
+          }
+          break;
+
+        case "ALERT":
+          alert(msg.message);
+          break;
+      }
+    }
+
+    // --- PIN Pad Logic ---
+    function enterPinDigit(digit) {
+      if (enteredPin.length >= 4 || isSubmittingPin) return;
+      vibrate(10);
+      enteredPin += digit;
+      renderPinDots();
+
+      if (enteredPin.length === 4) {
+        submitPin();
+      }
+    }
+
+    function backspacePin() {
+      if (isSubmittingPin) return;
+      if (enteredPin.length > 0) {
+        vibrate(10);
+        enteredPin = enteredPin.slice(0, -1);
+        renderPinDots();
+        showStatus("");
+      }
+    }
+
+    function clearPin() {
+      isSubmittingPin = false;
+      enteredPin = "";
+      renderPinDots();
+      showStatus("");
+    }
+
+    function renderPinDots() {
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`pd-${i}`);
+        if (i < enteredPin.length) {
+          el.textContent = "●";
+          el.classList.add("active");
+          el.classList.remove("error");
+        } else {
+          el.textContent = "-";
+          el.classList.remove("active", "error");
+        }
+      }
+    }
+
+    function triggerPinError(msg) {
+      isSubmittingPin = false;
+      vibrate([50, 50, 50]);
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`pd-${i}`);
+        el.classList.add("error");
+      }
+      showStatus(msg);
+      setTimeout(() => {
+        clearPin();
+      }, 1000);
+    }
+
+    function showStatus(msg) {
+      const el = document.getElementById("pin-status");
+      if (el) el.textContent = msg;
+    }
+
+    async function submitPin() {
+      isSubmittingPin = true;
+      showStatus("Verifying PIN with presenter host...");
+      const userAgent = navigator.userAgent;
+      const device = /iPhone|iPad/i.test(userAgent) ? "iPhone (Safari)" :
+                     /Android/i.test(userAgent) ? "Android Phone" : "Mobile Remote";
+
+      try {
+        await sendEncrypted({
+          type: "PAIR_REQUEST",
+          pairing_token: pairingToken,
+          pin: enteredPin,
+          device_name: device
+        });
+
+        // Set safety timeout if network drops response
+        setTimeout(() => {
+          if (isSubmittingPin) {
+            isSubmittingPin = false;
+            showStatus("Host response taking longer than usual... Tap to retry");
+          }
+        }, 5000);
+      } catch (err) {
+        isSubmittingPin = false;
+        showStatus("Network error: " + err.message);
+      }
+    }
+
+    async function sendResumeRequest() {
+      await sendEncrypted({
+        type: "RESUME_REQUEST",
+        session_id: sessionId
+      });
+    }
+
+    // --- Presentation Controls ---
+    async function sendAction(action, targetSlide = 0) {
+      vibrate(25);
+      await sendEncrypted({
+        type: "ACTION",
+        action: action,
+        target_slide: targetSlide
+      });
+    }
+
+    function toggleShow() {
+      if (isShowRunning) {
+        sendAction("END_SHOW");
+      } else {
+        sendAction("START_SHOW");
+      }
+    }
+
+    function updateUIState(state) {
+      presentationState = state;
+      isShowRunning = state.running;
+
+      document.getElementById("cur-slide-num").textContent = state.current_slide || 1;
+      document.getElementById("total-slide-num").textContent = `/ ${state.total_slides || 1}`;
+
+      const titleEl = document.getElementById("slide-title");
+      titleEl.textContent = state.title || `Slide ${state.current_slide}`;
+
+      const notesEl = document.getElementById("slide-notes");
+      if (state.notes && state.notes.trim()) {
+        notesEl.textContent = state.notes;
+        notesEl.classList.remove("empty");
+      } else {
+        notesEl.textContent = "No speaker notes recorded for this slide.";
+        notesEl.classList.add("empty");
+      }
+
+      // Up Next peek
+      const peekSection = document.getElementById("peek-section");
+      if (state.next_title || state.next_notes) {
+        peekSection.style.display = "block";
+        document.getElementById("peek-title").textContent = state.next_title || "Next Slide";
+        document.getElementById("peek-notes").textContent = state.next_notes || "No notes.";
+      } else {
+        peekSection.style.display = "none";
+      }
+
+      // Blank screen toggles
+      document.getElementById("btn-blackout").classList.toggle("active", !!state.black_screen);
+      document.getElementById("btn-whiteout").classList.toggle("active", !!state.white_screen);
+      document.getElementById("btn-show").textContent = state.running ? "Exit Show" : "Start Show";
+
+      // Auto scroll notes to top on slide change
+      const scrollEl = document.getElementById("notes-scroll");
+      if (scrollEl) scrollEl.scrollTop = 0;
+    }
+
+    function adjustFontSize(delta) {
+      currentFontSize = Math.max(13, Math.min(28, currentFontSize + delta));
+      document.getElementById("slide-notes").style.fontSize = `${currentFontSize}px`;
+    }
+
+    function setSecBadge(online, text) {
+      const el = document.getElementById("sec-badge");
+      const txtEl = document.getElementById("sec-status");
+      if (!el || !txtEl) return;
+      if (online) {
+        el.classList.remove("offline");
+        txtEl.textContent = text;
+      } else {
+        el.classList.add("offline");
+        txtEl.textContent = text;
+      }
+    }
+
+    function retrySubmitPin() {
+      if (enteredPin.length === 4) {
+        submitPin();
+      }
+    }
+
+    function showScreen(screenId) {
+      document.querySelectorAll(".screen").forEach(s => {
+        s.classList.remove("active");
+        s.style.setProperty("display", "none", "important");
+      });
+      const target = document.getElementById(screenId);
+      if (target) {
+        target.classList.add("active");
+        target.style.setProperty("display", "flex", "important");
+      }
+    }
+
+    function vibrate(pattern) {
+      if ("vibrate" in navigator) {
+        try { navigator.vibrate(pattern); } catch (e) {}
+      }
+    }
+
+    // --- Presentation Timer ---
+    function startTimer() {
+      if (timerRunning) return;
+      timerRunning = true;
+      timerInterval = setInterval(() => {
+        timerSeconds++;
+        const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+        const secs = String(timerSeconds % 60).padStart(2, '0');
+        document.getElementById("timer-display").textContent = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    document.getElementById("timer-btn").addEventListener("click", () => {
+      if (timerRunning) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        vibrate(20);
+      } else {
+        if (confirm("Reset presentation timer to 00:00?")) {
+          timerSeconds = 0;
+          document.getElementById("timer-display").textContent = "00:00";
+        }
+        startTimer();
+      }
+    });
+
+    // --- Touch Swipe Gestures ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    document.addEventListener("touchend", (e) => {
+      const diffX = e.changedTouches[0].screenX - touchStartX;
+      const diffY = e.changedTouches[0].screenY - touchStartY;
+
+      // Only trigger if horizontal swipe is prominent and > 60px
+      if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+        if (diffX < 0) {
+          sendAction("NEXT_SLIDE");
+        } else {
+          sendAction("PREV_SLIDE");
+        }
+      }
+    }, { passive: true });
+
+    // --- Jump Slide Modal ---
+    function openJumpModal() {
+      if (!presentationState) return;
+      const container = document.getElementById("slide-list-container");
+      container.innerHTML = "";
+
+      const total = presentationState.total_slides || 1;
+      const current = presentationState.current_slide || 1;
+      const titles = presentationState.slide_titles || [];
+
+      for (let i = 1; i <= total; i++) {
+        const item = document.createElement("div");
+        item.className = `slide-item ${i === current ? 'current' : ''}`;
+        const label = titles[i - 1] ? `${i}. ${titles[i - 1]}` : `Slide ${i}`;
+        item.textContent = label;
+        item.onclick = () => {
+          sendAction("GOTO_SLIDE", i);
+          closeJumpModal();
+        };
+        container.appendChild(item);
+      }
+
+      document.getElementById("jump-modal").classList.add("active");
+    }
+
+    function closeJumpModal() {
+      document.getElementById("jump-modal").classList.remove("active");
+    }
+
+    // --- App Entrypoint ---
+    window.addEventListener("DOMContentLoaded", async () => {
+      sessionId = getStoredSession();
+      const ready = await initCrypto();
+      if (ready) {
+        connectWS();
+      }
+    });
+  </script>
+</body>
+</html>

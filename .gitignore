@@ -1,0 +1,18 @@
+# Binaries
+bin/
+build/
+dist/
+*.dmg
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+
+# OS artifacts
+.DS_Store
+Thumbs.db
