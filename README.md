@@ -111,7 +111,7 @@ Download the latest **Universal `.dmg`** from [Releases](https://github.com/silv
 ### Windows
 Download the latest **`DeckTap-*-windows-amd64.zip`** from [Releases](https://github.com/silva324/DeckTap/releases):
 1. Extract the `.zip` archive.
-2. Run `pptx-remote.exe` (or install via `Setup-DeckTap.exe`). It runs silently in your System Tray with no distracting command window.
+2. Run `DeckTap.exe` (or install via `Setup-DeckTap.exe`). It runs silently in your System Tray with no distracting command window.
 
 ### Build from Source
 ```bash
@@ -123,7 +123,7 @@ cd DeckTap
 go test ./...
 
 # Build binary
-go build -o bin/pptx-remote ./cmd/pptx-remote
+go build -o bin/decktap ./cmd/pptx-remote
 ```
 
 ---
@@ -132,19 +132,19 @@ go build -o bin/pptx-remote ./cmd/pptx-remote
 
 ```bash
 # Standard mode (starts tunnel, opens host window & menu bar item)
-./bin/pptx-remote
+./bin/decktap
 
 # Diagnostic doctor (tests cloudflared, PowerPoint permissions, and notes extraction)
-./bin/pptx-remote doctor
+./bin/decktap doctor
 
 # Local offline mode (skips tunnel; 127.0.0.1 or LAN IP)
-./bin/pptx-remote -mode local
+./bin/decktap -mode local
 
 # Demo mode (runs synthetic presentation controller without PowerPoint)
-./bin/pptx-remote -demo internal/pptx/testdata/demo.pptx
+./bin/decktap -demo internal/pptx/testdata/demo.pptx
 
 # Terminal only (no GUI window / tray icon, prints QR and PIN directly to console)
-./bin/pptx-remote -no-tray -no-browser
+./bin/decktap -no-tray -no-browser
 ```
 
 ---

@@ -24,14 +24,14 @@ fi
 
 # 2. Build binaries (arm64 + amd64)
 echo "==> Compiling darwin/arm64..."
-CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/pptx-remote-arm64" ./cmd/pptx-remote
+CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/decktap-arm64" ./cmd/pptx-remote
 
 echo "==> Compiling darwin/amd64..."
-CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/pptx-remote-amd64" ./cmd/pptx-remote
+CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/decktap-amd64" ./cmd/pptx-remote
 
 echo "==> Creating Universal Binary..."
-lipo -create -output "build/pptx-remote-universal" "build/pptx-remote-arm64" "build/pptx-remote-amd64"
-chmod +x "build/pptx-remote-universal"
+lipo -create -output "build/decktap-universal" "build/decktap-arm64" "build/decktap-amd64"
+chmod +x "build/decktap-universal"
 
 # 3. Create .app Bundle
 echo "==> Assembling ${APP_NAME}.app..."
@@ -39,7 +39,7 @@ rm -rf "${APP_BUNDLE}"
 mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
-cp "build/pptx-remote-universal" "${APP_BUNDLE}/Contents/MacOS/pptx-remote"
+cp "build/decktap-universal" "${APP_BUNDLE}/Contents/MacOS/DeckTap"
 cp "build/icon.icns" "${APP_BUNDLE}/Contents/Resources/icon.icns"
 
 cat <<EOF > "${APP_BUNDLE}/Contents/Info.plist"
@@ -48,7 +48,7 @@ cat <<EOF > "${APP_BUNDLE}/Contents/Info.plist"
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>pptx-remote</string>
+    <string>DeckTap</string>
     <key>CFBundleIdentifier</key>
     <string>com.silva324.decktap</string>
     <key>CFBundleName</key>
@@ -125,7 +125,7 @@ rm -rf "${DMG_STAGING}"
 echo "==> Packaging Tarball: ${TAR_NAME}..."
 (
     cd "build"
-    tar -czf "${DIST_DIR}/${TAR_NAME}" pptx-remote-universal
+    tar -czf "${DIST_DIR}/${TAR_NAME}" decktap-universal
 )
 
 echo "==> Successfully created:"

@@ -5,7 +5,7 @@
 #define MyAppVersion "0.0.1"
 #define MyAppPublisher "Miguel Silva and contributors"
 #define MyAppURL "https://github.com/silva324/DeckTap"
-#define MyAppExeName "pptx-remote.exe"
+#define MyAppExeName "DeckTap.exe"
 
 [Setup]
 AppId={{D37F2C0B-4C95-4682-A74B-4E387532B09F}
@@ -34,7 +34,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startupicon"; Description: "Automatically start DeckTap when you log in"; GroupDescription: "Startup Options:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\bin\pptx-remote.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\bin\DeckTap.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: isreadme
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 

@@ -1,6 +1,6 @@
 .PHONY: all build build-darwin build-darwin-universal build-windows test lint doctor demo clean run verify setup-hooks
 
-BINARY_NAME=pptx-remote
+BINARY_NAME=decktap
 BUILD_DIR=bin
 VERSION?=$(shell git describe --tags --always 2>/dev/null || echo "0.0.1")
 
