@@ -535,9 +535,12 @@
   if (decksClose) decksClose.addEventListener("click", closeDecksSheet);
   $("sheet-decks").addEventListener("click", (e) => { if (e.target.id === "sheet-decks") closeDecksSheet(); });
 
-  // ------------------------------------------------------------ Virtual Laser & Spotlight (Gyro + Touch)
-  // ------------------------------------------------------------ Laser / Spotlight & Gyro
+  // ------------------------------------------------------------ Virtual Laser & Spotlight (Touch Default + Opt-in Gyro)
   let pointerActive = false, pointerMode = "laser";
+  let gyroEnabled = false;
+  try {
+    gyroEnabled = (localStorage.getItem("decktap_pointer_gyro") === "true");
+  } catch {}
   let refBeta = null, refGamma = null;
   let latestBeta = null, latestGamma = null;
   let curX = 0.5, curY = 0.5, lastSent = 0;
@@ -545,6 +548,50 @@
   let touchStartX = 0, touchStartY = 0;
   let touchStartCurX = 0.5, touchStartCurY = 0.5;
   let lastTapTime = 0;
+
+  function updateGyroUI() {
+    const btn = $("p-btn-gyro");
+    const lbl = $("p-gyro-label");
+    const hint = $("pointer-hint-text");
+    if (btn) btn.classList.toggle("active", gyroEnabled);
+    if (lbl) lbl.textContent = gyroEnabled ? "Tilt: On" : "Tilt: Off";
+    if (hint) {
+      hint.textContent = gyroEnabled
+        ? "Tilt phone or drag on slide to aim • Double-tap to center"
+        : "Touch & drag slide to aim • Double-tap to center";
+    }
+  }
+
+  async function toggleGyro() {
+    gyroEnabled = !gyroEnabled;
+    try {
+      localStorage.setItem("decktap_pointer_gyro", gyroEnabled ? "true" : "false");
+    } catch {}
+    buzz();
+
+    if (gyroEnabled) {
+      if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+        try {
+          const res = await DeviceOrientationEvent.requestPermission();
+          if (res !== "granted") {
+            gyroEnabled = false;
+            try { localStorage.setItem("decktap_pointer_gyro", "false"); } catch {}
+            alert("Motion sensor permission was denied. Touch drag is enabled.");
+          }
+        } catch (err) {
+          console.warn("Motion request error", err);
+        }
+      }
+      if (gyroEnabled && pointerActive) {
+        refBeta = null;
+        refGamma = null;
+        window.addEventListener("deviceorientation", handleOrientation);
+      }
+    } else {
+      window.removeEventListener("deviceorientation", handleOrientation);
+    }
+    updateGyroUI();
+  }
 
   function updateReticle(x, y) {
     const area = $("pointer-slide-canvas") || $("pointer-pad-area");
@@ -679,15 +726,23 @@
       history.pushState({ decktap_pointer: true }, "");
     } catch {}
 
-    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
-      try {
-        const res = await DeviceOrientationEvent.requestPermission();
-        if (res !== "granted") console.warn("DeviceOrientation permission denied");
-      } catch (err) {
-        console.warn("DeviceOrientation request error", err);
+    updateGyroUI();
+    if (gyroEnabled) {
+      if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+        try {
+          const res = await DeviceOrientationEvent.requestPermission();
+          if (res !== "granted") {
+            gyroEnabled = false;
+            updateGyroUI();
+          }
+        } catch (err) {
+          console.warn("DeviceOrientation request error", err);
+        }
+      }
+      if (gyroEnabled) {
+        window.addEventListener("deviceorientation", handleOrientation);
       }
     }
-    window.addEventListener("deviceorientation", handleOrientation);
     sendPointer(0.5, 0.5);
   }
 
@@ -772,6 +827,8 @@
       }
     });
   }
+  const btnGyro = $("p-btn-gyro");
+  if (btnGyro) btnGyro.addEventListener("click", () => toggleGyro());
   const btnRecenter = $("p-btn-recenter");
   if (btnRecenter) btnRecenter.addEventListener("click", () => centerPointer());
   const btnExitTop = $("pointer-exit-btn");
