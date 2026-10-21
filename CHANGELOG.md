@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/silva324/DeckTap/compare/v0.6.1...v0.6.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **presenter:** smart title extraction and missing value filtering across mac, windows, and webui ([#26](https://github.com/silva324/DeckTap/issues/26)) ([de5dad1](https://github.com/silva324/DeckTap/commit/de5dad17c48ecab32b7e7f3ef7eddfa873ddbcd3))
+
 ## [0.6.1](https://github.com/silva324/DeckTap/compare/v0.6.0...v0.6.1) (2026-10-21)
 
 
