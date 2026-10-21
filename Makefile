@@ -1,4 +1,4 @@
-.PHONY: all build build-darwin build-darwin-universal build-windows test lint doctor demo clean run verify setup-hooks
+.PHONY: all build build-darwin build-darwin-universal build-windows test lint doctor demo clean run verify setup-hooks bump-cask
 
 BINARY_NAME=decktap
 BUILD_DIR=bin
@@ -63,6 +63,9 @@ package-linux:
 	@./scripts/package-linux.sh
 
 package: package-macos package-windows package-linux
+
+bump-cask:
+	@./scripts/update-homebrew-cask.sh $(VERSION)
 
 clean:
 	rm -rf $(BUILD_DIR) dist build
