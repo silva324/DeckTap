@@ -562,6 +562,25 @@ body.no-preview .preview { display: none; }
   transform: scale(0.97);
   filter: brightness(0.95);
 }
+.btn-scan-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: transform .12s, background .12s;
+}
+.btn-scan-sm:active {
+  transform: scale(0.97);
+  background: rgba(255, 255, 255, 0.08);
+}
 .btn-link {
   background: none;
   border: none;
