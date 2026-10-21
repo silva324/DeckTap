@@ -514,12 +514,12 @@ body {
 		b.WriteString(`style="display:none;"`)
 	}
 	b.WriteString(`>
-      <div class="pin-label">Anti-Shoulder-Surfing PIN</div>
+      <div class="pin-label">4-Digit Security PIN</div>
       <div class="pin-digits" id="pin-digits">` + html.EscapeString(v.PinCode) + `</div>
     </div>
 
     <div class="warning-pill">
-      🔒 Keep this PIN and QR private. Do not share on the projector screen.
+      🔒 Presenter screen only. Do not display this window on the audience projector.
     </div>
   </div>
 
@@ -535,14 +535,16 @@ body {
 
   <div class="actions">
     <form method="post" action="/` + s.secret + `/reset" style="display:inline;">
-      <button type="submit" class="btn" title="Rotate pairing keys, token, and PIN">🔄 Reset Pairing</button>
+      <button type="submit" class="btn" title="Create a fresh pairing code and disconnect previous devices">🔄 New Pairing Code</button>
     </form>
-    <button type="button" class="btn" id="btn-copy-link">📋 Copy Link</button>
+    <button type="button" class="btn" id="btn-copy-link">📋 Copy Pairing Link</button>
   </div>
 
   <div class="tunnel-info" id="tunnel-info">`)
 	if v.PublicHost != "" {
-		b.WriteString("Tunnel: " + html.EscapeString(v.PublicHost))
+		b.WriteString("Web App: silva324.github.io/DeckTap · Host: " + html.EscapeString(v.PublicHost))
+	} else {
+		b.WriteString("Web App: silva324.github.io/DeckTap")
 	}
 	b.WriteString(`</div>
 </div>

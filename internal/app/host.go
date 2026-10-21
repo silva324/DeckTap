@@ -407,35 +407,35 @@ func (h *Host) Snapshot() Snapshot {
 func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	switch {
 	case s.Session.State == session.LockedOut || s.TunnelState == TunnelLocked:
-		headline, problem = "Stopped: too many failed connection attempts", true
+		headline, problem = "Connection paused: multiple incorrect PIN attempts. Click 'New Pairing Code' to resume.", true
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelStarting:
-		headline = "Starting secure tunnel…"
+		headline = "Preparing secure connection…"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelFailed:
-		headline, problem = "Tunnel problem: "+s.TunnelError, true
+		headline, problem = "Connection issue: "+s.TunnelError, true
 	case s.Mode == ModeTunnel:
-		headline = "Running · tunnel online"
+		headline = "Ready to connect"
 	default:
-		headline = "Running · local test mode"
+		headline = "Ready · local test mode"
 	}
 	switch {
 	case s.Session.State == session.Unpaired:
-		phone = "Phone: waiting for pairing"
+		phone = "Scan QR code with your phone"
 	case s.Session.Connected:
-		phone = "Phone: connected 🔒"
+		phone = "Phone connected 🔒"
 	case s.Session.State == session.Paired:
-		phone = "Phone: paired, reconnecting…"
+		phone = "Phone paired, reconnecting…"
 	default:
-		phone = "Phone: —"
+		phone = "Ready"
 	}
 	switch {
 	case !s.Show.AppRunning:
-		show = "PowerPoint: not running"
+		show = "PowerPoint not detected"
 	case s.Show.DeckName == "":
-		show = "PowerPoint: no presentation open"
+		show = "No presentation open"
 	case s.Show.Presenting:
-		show = fmt.Sprintf("Presenting %d/%d · %s", s.Show.Slide, s.Show.Total, s.Show.DeckName)
+		show = fmt.Sprintf("Slide %d of %d · %s", s.Show.Slide, s.Show.Total, s.Show.DeckName)
 	default:
-		show = fmt.Sprintf("Ready · %s (%d slides)", s.Show.DeckName, s.Show.Total)
+		show = fmt.Sprintf("%s (%d slides ready)", s.Show.DeckName, s.Show.Total)
 	}
 	return
 }
@@ -458,7 +458,7 @@ func (h *Host) adminView() admin.View {
 		v.PublicHost = strings.TrimPrefix(s.PublicURL, "https://")
 	}
 	if s.Session.State == session.Paired {
-		v.Detail = phone + " · " + show + " · the QR code was used and is no longer valid"
+		v.Detail = phone + " · " + show + " · Remote control is active"
 	}
 	return v
 }

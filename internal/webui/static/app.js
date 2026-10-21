@@ -218,21 +218,21 @@
     authed = false; stopPing();
     const hadSession = !!ss.get("sid");
     if (!hadSession && enteredPin.length === 4) {
-      triggerPinError("Pairing failed. Please check PIN code on laptop.");
+      triggerPinError("Incorrect PIN. Please check the 4-digit PIN on your computer screen.");
       return;
     }
     const end = (title, text, clear, retry) => { terminal = true; if (clear) { ss.clear(); key = null; } message(title, text, retry); };
     switch (ev.code) {
-      case 4000: return end("Opened elsewhere", "This session continued in another tab or on another device.", false, true);
-      case 4001: return end("Pairing was reset", "The laptop created a new QR code. Scan it to connect again.", true);
-      case 4002: return end("DeckTap stopped", "DeckTap was closed on the laptop.", true);
-      case 1008: return end(hadSession ? "Session ended" : "QR code not valid",
-        hadSession ? "The laptop ended this session for security reasons. Use “Reset pairing” on the laptop and scan the new QR code."
-                   : "This QR code was already used or has been reset. Use “Reset pairing” on the laptop and scan the new QR code.", true);
+      case 4000: return end("Opened Elsewhere", "This presentation was opened on another phone or tab.", false, true);
+      case 4001: return end("New Code Created", "A new pairing code was created on your computer. Scan the new code to reconnect.", true);
+      case 4002: return end("DeckTap Closed", "DeckTap was closed on your computer.", true);
+      case 1008: return end(hadSession ? "Session Ended" : "Pairing Code Expired",
+        hadSession ? "The presentation session ended. Scan a new QR code on your computer to connect again."
+                   : "This pairing code has expired or was already used. Click 'New Pairing Code' on your computer and scan again.", true);
     }
     retries++;
     if (!hadSession && retries > 10) {
-      return end("Can't reach the laptop", "Check that the host is still running on the laptop and that you have internet.", false, true);
+      return end("Cannot Reach Computer", "Unable to connect. Make sure DeckTap is open on your computer and your phone has an internet connection.", false, true);
     }
     const connEl = $("conn");
     connEl.classList.remove("hidden");
@@ -803,7 +803,7 @@
   $("t-bigger").addEventListener("click", () => { fontSize = Math.min(44, fontSize + 2); prefs.set("font", fontSize); applyPrefs(); });
   $("t-theme").addEventListener("click", () => { theme = { auto: "light", light: "dark", dark: "auto" }[theme]; prefs.set("theme", theme); applyPrefs(); });
   function disconnect() {
-    if (!confirm("Disconnect this phone? You will need a new QR code (Reset pairing on the laptop).")) return;
+    if (!confirm("Disconnect from this presentation?")) return;
     closeSheet();
     terminal = true;
     ss.clear();
@@ -812,7 +812,7 @@
       try { ws.close(1000); } catch {}
       ws = null;
     }
-    message("Disconnected", "Use “Reset pairing” on the laptop and scan the new QR code to connect again.", false, { type: "disconnected", text: "Disconnected" });
+    message("Disconnected", "You are disconnected. Scan a new QR code on your computer whenever you're ready to present.", false, { type: "disconnected", text: "Disconnected" });
   }
 
   $("t-disconnect").addEventListener("click", disconnect);
@@ -1092,7 +1092,7 @@
 
     clearPin();
     show("screen-pin");
-    toast("QR Code Scanned! Enter PIN code.", 2500);
+    toast("QR code scanned! Enter the 4-digit PIN shown on your screen.", 3000);
     return true;
   }
 
@@ -1200,7 +1200,7 @@
     if (!k || (!ss.get("token") && !ss.get("sid"))) {
       const lastHost = prefs.get("last_host", null);
       const badge = lastHost ? { type: "ready", text: "Ready to connect (" + lastHost.split(":")[0] + ")" } : null;
-      return message("Scan the QR code", "Start DeckTap on your laptop and scan the QR code it shows with your phone camera.", false, badge);
+      return message("Connect to Presentation", "Open DeckTap on your computer and scan the QR code shown on your screen to start presenting.", false, badge);
     }
     try {
       key = await C.importKey(k);
