@@ -23,6 +23,7 @@
     del: (k) => {
       try {
         localStorage.removeItem("dt." + k);
+        localStorage.removeItem("sc." + k);
         sessionStorage.removeItem("dt." + k);
         sessionStorage.removeItem("sc." + k);
       } catch {}
@@ -1250,7 +1251,10 @@
 
   // ------------------------------------------------------------ PIN Keypad listeners
   document.querySelectorAll(".keypad .key-btn[data-key]").forEach((b) => {
-    b.addEventListener("click", () => enterPinDigit(b.dataset.key));
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      enterPinDigit(b.dataset.key);
+    });
   });
   const clearBtn = $("pin-clear");
   if (clearBtn) clearBtn.addEventListener("click", clearPin);
