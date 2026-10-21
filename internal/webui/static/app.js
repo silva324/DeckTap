@@ -234,10 +234,13 @@
     if (!hadSession && retries > 10) {
       return end("Cannot Reach Computer", "Unable to connect. Make sure DeckTap is open on your computer and your phone has an internet connection.", false, true);
     }
+    if (hadSession && retries > 12) {
+      return end("Connection Lost", "Unable to reconnect to your presentation. Make sure DeckTap is running on your computer, or scan a new QR code.", true, true);
+    }
     const connEl = $("conn");
     connEl.classList.remove("hidden");
-    if (retries > 6) {
-      connEl.textContent = "Reconnecting… (tap to retry)";
+    if (retries >= 3) {
+      connEl.textContent = "Reconnecting… (tap to scan code)";
     } else {
       connEl.textContent = "Reconnecting…";
     }
@@ -429,6 +432,12 @@
   const connBanner = $("conn");
   if (connBanner) {
     connBanner.addEventListener("click", () => {
+      if (retries >= 3) {
+        if (confirm("Connection lost. Would you like to scan a new QR code from your computer screen?")) {
+          restartPairingWithScanner();
+          return;
+        }
+      }
       connBanner.textContent = "Reconnecting…";
       retries = 0;
       terminal = false;
@@ -1047,6 +1056,20 @@
     if (modal) modal.classList.add("hidden");
   }
 
+  function restartPairingWithScanner() {
+    terminal = false;
+    retries = 0;
+    if (ws) {
+      try { ws.close(); } catch {}
+      ws = null;
+    }
+    clearTimeout(retryTimer);
+    stopPing();
+    const connEl = $("conn");
+    if (connEl) connEl.classList.add("hidden");
+    startScanner();
+  }
+
   async function toggleTorch() {
     if (!scannerStream) return;
     const track = scannerStream.getVideoTracks()[0];
@@ -1200,6 +1223,8 @@
 
   const btnScanQr = $("btn-scan-qr");
   if (btnScanQr) btnScanQr.addEventListener("click", startScanner);
+  const btnConnectingScan = $("btn-connecting-scan");
+  if (btnConnectingScan) btnConnectingScan.addEventListener("click", restartPairingWithScanner);
   const btnManualToggle = $("btn-manual-toggle");
   if (btnManualToggle) btnManualToggle.addEventListener("click", toggleManualLink);
   const btnManualSubmit = $("btn-manual-submit");
@@ -1272,4 +1297,18 @@
     connect();
   }
   boot();
+
+  window.addEventListener("hashchange", () => {
+    if (location.hash && location.hash.length > 1) {
+      if (ws) {
+        try { ws.close(); } catch {}
+        ws = null;
+      }
+      clearTimeout(retryTimer);
+      stopPing();
+      terminal = false;
+      retries = 0;
+      boot();
+    }
+  });
 })();
