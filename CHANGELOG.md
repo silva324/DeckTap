@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/silva324/DeckTap/compare/v0.3.0...v0.3.1) (2026-10-21)
+
+
+### Miscellaneous Chores
+
+* **ci:** configure pages setup step and trigger deployment ([#12](https://github.com/silva324/DeckTap/issues/12)) ([694026b](https://github.com/silva324/DeckTap/commit/694026b8f50e0b4712868f5320c556f327157ab7))
+
 ## [0.3.0](https://github.com/silva324/DeckTap/compare/v0.2.0...v0.3.0) (2026-10-21)
 
 
