@@ -68,6 +68,35 @@
     }
     return n;
   }
+  function escapeHTML(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function formatNotes(raw) {
+    if (!raw) return "";
+    const clean = cleanNotes(raw);
+    if (!clean) return "";
+
+    const escaped = escapeHTML(clean);
+    return escaped.replace(/\[([A-Z0-9_ -]{2,24})\]/gi, (match, tag) => {
+      const upper = tag.trim().toUpperCase();
+      let cls = "cue-default";
+      if (upper === "DEMO" || upper.startsWith("DEMO ")) cls = "cue-demo";
+      else if (upper === "PAUSE" || upper === "WAIT" || upper === "BREATHE") cls = "cue-pause";
+      else if (upper === "CLICK" || upper === "NEXT" || upper === "ADVANCE") cls = "cue-click";
+      else if (upper === "QUESTION" || upper === "Q&A" || upper === "ASK") cls = "cue-question";
+      else if (upper === "WARN" || upper === "WARNING" || upper === "CAUTION" || upper === "ALERT") cls = "cue-warn";
+      return `<span class="cue-pill ${cls}">[${upper}]</span>`;
+    });
+  }
+  let zoomHudTimer = null;
+  function showZoomHud(size) {
+    const hud = $("zoom-hud");
+    if (!hud) return;
+    hud.textContent = `${size}px`;
+    hud.classList.remove("hidden");
+    clearTimeout(zoomHudTimer);
+    zoomHudTimer = setTimeout(() => hud.classList.add("hidden"), 1000);
+  }
   function show(id) { for (const s of document.querySelectorAll(".screen")) s.classList.toggle("hidden", s.id !== id); }
   function message(title, text, retry, badge) {
     $("msg-title").textContent = title; $("msg-text").textContent = text;
@@ -331,8 +360,13 @@
     $("next-title").textContent = s.ended ? "" : s.nextSlide ? `Next: ${nextClean}` : "Last slide";
     const notes = $("notes");
     const cNotes = cleanNotes(s.notes);
-    notes.textContent = cNotes || "No notes for this slide.";
-    notes.classList.toggle("empty", !cNotes);
+    if (cNotes) {
+      notes.innerHTML = formatNotes(cNotes);
+      notes.classList.remove("empty");
+    } else {
+      notes.textContent = "No notes for this slide.";
+      notes.classList.add("empty");
+    }
     if (notes.dataset.idx !== String(s.currentSlide)) { notes.scrollTop = 0; notes.dataset.idx = s.currentSlide; }
     let line = "", warn = false;
     if (s.ended) line = "End of slide show: Next exits, Prev goes back";
@@ -478,15 +512,78 @@
   $("msg-retry").addEventListener("click", () => { terminal = false; retries = 0; if (key) connect(); else location.reload(); });
 
   let sx = 0, sy = 0, st0 = 0;
+  let pinchStartDist = 0, pinchStartSize = fontSize, isPinching = false;
   const notes = $("notes");
-  notes.addEventListener("touchstart", (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st0 = Date.now(); }, { passive: true });
+
+  // 1. Gesture API (iOS Safari native pinch)
+  notes.addEventListener("gesturestart", (e) => {
+    e.preventDefault();
+    isPinching = true;
+    pinchStartSize = fontSize;
+  });
+  notes.addEventListener("gesturechange", (e) => {
+    e.preventDefault();
+    const newSize = Math.max(14, Math.min(48, Math.round(pinchStartSize * e.scale)));
+    if (newSize !== fontSize) {
+      fontSize = newSize;
+      prefs.set("font", fontSize);
+      applyPrefs();
+      showZoomHud(fontSize);
+    }
+  });
+  notes.addEventListener("gestureend", () => {
+    setTimeout(() => { isPinching = false; }, 250);
+  });
+
+  // 2. Multi-touch Events (Android Chrome, Firefox, Cross-Browser)
+  notes.addEventListener("touchstart", (e) => {
+    if (e.touches.length >= 2) {
+      isPinching = true;
+      pinchStartDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      pinchStartSize = fontSize;
+      return;
+    }
+    if (e.touches.length === 1 && !isPinching) {
+      const t = e.touches[0];
+      sx = t.clientX; sy = t.clientY; st0 = Date.now();
+    }
+  }, { passive: true });
+
+  notes.addEventListener("touchmove", (e) => {
+    if (e.touches.length >= 2 && pinchStartDist > 0) {
+      isPinching = true;
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      const factor = dist / pinchStartDist;
+      const newSize = Math.max(14, Math.min(48, Math.round(pinchStartSize * factor)));
+      if (newSize !== fontSize) {
+        fontSize = newSize;
+        prefs.set("font", fontSize);
+        applyPrefs();
+        showZoomHud(fontSize);
+      }
+    }
+  }, { passive: true });
+
   notes.addEventListener("touchend", (e) => {
+    if (isPinching) {
+      if (e.touches.length === 0) {
+        setTimeout(() => { isPinching = false; }, 250);
+        pinchStartDist = 0;
+      }
+      return;
+    }
+    if (!e.changedTouches || !e.changedTouches.length) return;
     const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - st0 > 800) return;
     notes.classList.add(dx < 0 ? "swipe-l" : "swipe-r");
     setTimeout(() => notes.classList.remove("swipe-l", "swipe-r"), 150);
     if (dx < 0) next(); else command("PREV");
   }, { passive: true });
+
+  notes.addEventListener("touchcancel", () => {
+    isPinching = false;
+    pinchStartDist = 0;
+  });
 
   document.addEventListener("keydown", (e) => {
     if (!state || !state.isPresenting || e.target.tagName === "INPUT") return;
@@ -660,7 +757,7 @@
       const cNotes = cleanNotes(state && state.notes);
       if (cNotes) {
         const lines = cNotes.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 3);
-        wmContent.innerHTML = lines.map(l => `<div class="wm-line">• ${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`).join("");
+        wmContent.innerHTML = lines.map(l => `<div class="wm-line">• ${formatNotes(l)}</div>`).join("");
       } else {
         wmContent.innerHTML = `<div class="wm-line" style="opacity: 0.18;">Widescreen 16:9 Canvas</div>`;
       }
@@ -885,8 +982,8 @@
   if (btnSpot) btnSpot.addEventListener("click", () => startPointer("spotlight"));
   $("t-black").addEventListener("click", () => { command("BLACK"); closeSheet(); });
   $("t-end").addEventListener("click", () => { if (confirm("End the slide show?")) { command("END_SHOW"); closeSheet(); } });
-  $("t-smaller").addEventListener("click", () => { fontSize = Math.max(14, fontSize - 2); prefs.set("font", fontSize); applyPrefs(); });
-  $("t-bigger").addEventListener("click", () => { fontSize = Math.min(44, fontSize + 2); prefs.set("font", fontSize); applyPrefs(); });
+  $("t-smaller").addEventListener("click", () => { fontSize = Math.max(14, fontSize - 2); prefs.set("font", fontSize); applyPrefs(); showZoomHud(fontSize); });
+  $("t-bigger").addEventListener("click", () => { fontSize = Math.min(48, fontSize + 2); prefs.set("font", fontSize); applyPrefs(); showZoomHud(fontSize); });
   $("t-theme").addEventListener("click", () => { theme = { auto: "light", light: "dark", dark: "auto" }[theme]; prefs.set("theme", theme); applyPrefs(); });
   function disconnect() {
     if (!confirm("Disconnect from this presentation?")) return;
