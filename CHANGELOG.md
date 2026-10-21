@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.1](https://github.com/silva324/DeckTap/compare/v0.7.0...v0.7.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **presenter:** enable show with presenter on multi-display setups ([#32](https://github.com/silva324/DeckTap/issues/32)) ([248ce7a](https://github.com/silva324/DeckTap/commit/248ce7a43691c221acf46b740647cc484e794f01))
+
+
+### Documentation
+
+* **guide:** add docs directory with presenter user guide and architecture spec ([#30](https://github.com/silva324/DeckTap/issues/30)) ([63520fc](https://github.com/silva324/DeckTap/commit/63520fcbcbdc25103075207217c8357bc760ba65))
+
 ## [0.7.0](https://github.com/silva324/DeckTap/compare/v0.6.2...v0.7.0) (2026-10-21)
 
 
