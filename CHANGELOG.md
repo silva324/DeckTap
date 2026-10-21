@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/silva324/DeckTap/compare/v0.6.2...v0.7.0) (2026-10-21)
+
+
+### Features
+
+* **webui:** add smart stage cues and touch pinch-to-zoom for speaker notes ([#28](https://github.com/silva324/DeckTap/issues/28)) ([3ab39d0](https://github.com/silva324/DeckTap/commit/3ab39d0f739db6a6ae9853657db73b95bea01fae))
+
 ## [0.6.2](https://github.com/silva324/DeckTap/compare/v0.6.1...v0.6.2) (2026-10-21)
 
 
