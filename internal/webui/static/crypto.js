@@ -22,12 +22,43 @@
     return Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
   }
 
-  /** Parse "#<PairingToken>.<MasterKey>" → {token, key} (both base64url strings) or null. */
+  /** Parse "#<PairingToken>.<MasterKey>" or "#<PairingToken>.<MasterKey>@<Host>" → {token, key, host} or null. */
   function parseFragment(hash) {
-    const m = /^#?([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/.exec(hash || "");
-    if (!m) return null;
-    if (b64uDecode(m[1]).length !== 16 || b64uDecode(m[2]).length !== 32) return null;
-    return { token: m[1], key: m[2] };
+    if (!hash) return null;
+    hash = String(hash).trim();
+    if (hash.startsWith("#")) hash = hash.slice(1);
+    if (!hash) return null;
+
+    // Format A: <token>.<key>@<host> or <token>.<key>
+    const m = /^([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})(?:@([A-Za-z0-9_.:-]+))?$/.exec(hash);
+    if (m) {
+      try {
+        if (b64uDecode(m[1]).length === 16 && b64uDecode(m[2]).length === 32) {
+          return { token: m[1], key: m[2], host: m[3] || null };
+        }
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Format B: query-style fragment host=...&token=...&key=...
+    if (hash.includes("=") && (hash.includes("token=") || hash.includes("key="))) {
+      try {
+        const params = new URLSearchParams(hash);
+        const token = params.get("token");
+        const key = params.get("key");
+        const host = params.get("host");
+        if (token && key && /^[A-Za-z0-9_-]{22}$/.test(token) && /^[A-Za-z0-9_-]{43}$/.test(key)) {
+          if (b64uDecode(token).length === 16 && b64uDecode(key).length === 32) {
+            return { token, key, host: host || null };
+          }
+        }
+      } catch (e) {
+        return null;
+      }
+    }
+
+    return null;
   }
 
   async function importKey(keyB64) {

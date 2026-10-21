@@ -52,10 +52,21 @@
 
   // ------------------------------------------------------------ ui helpers
   function show(id) { for (const s of document.querySelectorAll(".screen")) s.classList.toggle("hidden", s.id !== id); }
-  function message(title, text, retry) {
+  function message(title, text, retry, badge) {
     $("msg-title").textContent = title; $("msg-text").textContent = text;
     $("msg-retry").classList.toggle("hidden", !retry);
     $("conn").classList.add("hidden");
+    const badgeEl = $("conn-info-badge");
+    if (badgeEl) {
+      if (badge) {
+        badgeEl.classList.remove("hidden");
+        const dot = badgeEl.querySelector(".conn-badge-dot");
+        if (dot) dot.classList.toggle("disconnected", badge.type === "disconnected");
+        $("conn-info-text").textContent = badge.text;
+      } else {
+        badgeEl.classList.add("hidden");
+      }
+    }
     show("screen-msg");
   }
   function toast(msg, ms = 3000) {
@@ -791,12 +802,22 @@
   $("t-smaller").addEventListener("click", () => { fontSize = Math.max(14, fontSize - 2); prefs.set("font", fontSize); applyPrefs(); });
   $("t-bigger").addEventListener("click", () => { fontSize = Math.min(44, fontSize + 2); prefs.set("font", fontSize); applyPrefs(); });
   $("t-theme").addEventListener("click", () => { theme = { auto: "light", light: "dark", dark: "auto" }[theme]; prefs.set("theme", theme); applyPrefs(); });
-  $("t-disconnect").addEventListener("click", () => {
+  function disconnect() {
     if (!confirm("Disconnect this phone? You will need a new QR code (Reset pairing on the laptop).")) return;
-    closeSheet(); terminal = true; ss.clear(); key = null;
-    if (ws) ws.close(1000);
-    message("Disconnected", "Use “Reset pairing” on the laptop and scan the new QR code to connect again.");
-  });
+    closeSheet();
+    terminal = true;
+    ss.clear();
+    key = null;
+    if (ws) {
+      try { ws.close(1000); } catch {}
+      ws = null;
+    }
+    message("Disconnected", "Use “Reset pairing” on the laptop and scan the new QR code to connect again.", false, { type: "disconnected", text: "Disconnected" });
+  }
+
+  $("t-disconnect").addEventListener("click", disconnect);
+  const btnReadyDisconnect = $("btn-ready-disconnect");
+  if (btnReadyDisconnect) btnReadyDisconnect.addEventListener("click", disconnect);
 
   // ------------------------------------------------------------ PWA Installation & Service Worker
   let deferredInstallPrompt = null;
@@ -880,6 +901,8 @@
   let torchActive = false;
 
   async function startScanner() {
+    terminal = false;
+    retries = 0;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       toast("Camera API not supported in this browser");
       return;
@@ -1027,7 +1050,7 @@
         targetProto = u.protocol;
       } else if (rawValue.includes("#")) {
         hashPart = rawValue.substring(rawValue.indexOf("#"));
-      } else if (/^[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/.test(rawValue)) {
+      } else {
         hashPart = "#" + rawValue;
       }
     } catch (e) {
@@ -1040,11 +1063,20 @@
     buzz();
     stopScanner();
 
+    // Reset terminal state and retries for new pairing
+    terminal = false;
+    retries = 0;
+
     // Reset session storage with fresh credentials
     ss.clear();
+    if (parsed.host) {
+      targetHost = parsed.host;
+      targetProto = (targetHost.startsWith("127.0.0.1") || targetHost.startsWith("localhost") || (targetHost.includes(":") && !targetHost.endsWith(":443"))) ? "http:" : "https:";
+    }
     if (targetHost) {
       ss.set("server_host", targetHost);
-      ss.set("server_proto", targetProto || "http:");
+      ss.set("server_proto", targetProto || "https:");
+      prefs.set("last_host", targetHost);
     }
     ss.set("key", parsed.key);
     ss.set("token", parsed.token);
@@ -1150,12 +1182,29 @@
     const frag = C.parseFragment(location.hash);
     // Sanitise immediately: secrets must not stay in the address bar or history.
     if (location.hash) history.replaceState(null, "", location.pathname);
-    if (frag) { ss.clear(); ss.set("key", frag.key); ss.set("token", frag.token); ss.set("cseq", 0); ss.set("hseq", 0); }
+    if (frag) {
+      terminal = false;
+      retries = 0;
+      ss.clear();
+      if (frag.host) {
+        ss.set("server_host", frag.host);
+        ss.set("server_proto", (frag.host.startsWith("127.0.0.1") || frag.host.startsWith("localhost") || (frag.host.includes(":") && !frag.host.endsWith(":443"))) ? "http:" : "https:");
+        prefs.set("last_host", frag.host);
+      }
+      ss.set("key", frag.key);
+      ss.set("token", frag.token);
+      ss.set("cseq", 0);
+      ss.set("hseq", 0);
+    }
     const k = ss.get("key");
     if (!k || (!ss.get("token") && !ss.get("sid"))) {
-      return message("Scan the QR code", "Start DeckTap on your laptop and scan the QR code it shows with your phone camera.");
+      const lastHost = prefs.get("last_host", null);
+      const badge = lastHost ? { type: "ready", text: "Ready to connect (" + lastHost.split(":")[0] + ")" } : null;
+      return message("Scan the QR code", "Start DeckTap on your laptop and scan the QR code it shows with your phone camera.", false, badge);
     }
-    try { key = await C.importKey(k); } catch (e) {
+    try {
+      key = await C.importKey(k);
+    } catch (e) {
       return message("Browser not supported", "This browser can't do the required encryption (" + e.message + ").");
     }
     if (!ss.get("sid")) {

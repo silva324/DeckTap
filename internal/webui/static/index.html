@@ -26,6 +26,11 @@
       <h1 id="msg-title">Scan the QR code</h1>
       <p id="msg-text" class="muted">Start DeckTap on your laptop and scan the QR code it shows with your phone camera.</p>
       
+      <div id="conn-info-badge" class="conn-info-badge hidden">
+        <span class="conn-badge-dot"></span>
+        <span id="conn-info-text"></span>
+      </div>
+
       <div class="msg-actions">
         <button class="btn primary btn-scan-lg" id="btn-scan-qr" type="button">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -39,7 +44,7 @@
 
       <div id="manual-link-container" class="manual-link-container hidden">
         <div class="manual-input-row">
-          <input type="text" id="manual-link-input" placeholder="Paste link or #token.key" autocomplete="off" spellcheck="false">
+          <input type="text" id="manual-link-input" placeholder="Paste link or #token.key@host" autocomplete="off" spellcheck="false">
           <button class="btn primary" id="btn-manual-submit" type="button">Pair</button>
         </div>
       </div>
@@ -94,7 +99,10 @@
   <section id="screen-ready" class="screen hidden">
     <header class="bar">
       <div class="brand"><img src="icon.svg" alt=""> DeckTap</div>
-      <span class="lock" title="End-to-end encrypted"><svg class="lock-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z"/></svg> E2EE</span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="lock" title="End-to-end encrypted"><svg class="lock-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z"/></svg> E2EE</span>
+        <button class="icon-btn" id="btn-ready-disconnect" title="Disconnect" aria-label="Disconnect">⏏</button>
+      </div>
     </header>
     <div class="content center">
       <div class="ready-card">

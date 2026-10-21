@@ -26,6 +26,7 @@ type View struct {
 	Headline       string
 	Detail         string
 	PairingURL     string // "" = no QR
+	DirectURL      string // direct tunnel or loopback URL
 	PublicHost     string
 	PinCode        string // 4-digit visual PIN
 	Paired         bool
@@ -135,6 +136,7 @@ func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
 		"headline":       v.Headline,
 		"detail":         v.Detail,
 		"pairingURL":     v.PairingURL,
+		"directURL":      v.DirectURL,
 		"publicHost":     v.PublicHost,
 		"pinCode":        v.PinCode,
 		"paired":         v.Paired,

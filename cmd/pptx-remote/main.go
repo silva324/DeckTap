@@ -38,6 +38,7 @@ func main() {
 	port := flag.Int("port", 0, "local port (0 = OS-assigned)")
 	cloudflared := flag.String("cloudflared", "", "path to the cloudflared binary (default: auto-detect & auto-download)")
 	demo := flag.String("demo", "", "use the demo controller with this .pptx instead of PowerPoint")
+	pwaURL := flag.String("pwa-url", app.DefaultPWAURL, "canonical PWA web app URL for pairing QR ('direct' for direct tunnel/LAN URL)")
 	noTray := flag.Bool("no-tray", false, "run in the terminal without a menu-bar/tray icon")
 	noBrowser := flag.Bool("no-browser", false, "do not open the pairing page automatically")
 	maxFailures := flag.Int("max-failures", 5, "failed handshakes before the tunnel is destroyed")
@@ -65,6 +66,7 @@ func main() {
 		Mode:        m,
 		Port:        *port,
 		Cloudflared: *cloudflared,
+		PWAURL:      *pwaURL,
 		MaxFailures: *maxFailures,
 		Version:     version,
 	}, ctl, log)
