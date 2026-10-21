@@ -113,6 +113,7 @@ func NewHost(cfg Config, ctl presenter.Controller, log *slog.Logger) *Host {
 		updater:     updater.NewService(ver, nil),
 	}
 	h.Sync = NewSync(ctl, log, cfg.PollInterval)
+	h.Sync.version = ver
 	h.Hub = session.New(session.Options{
 		MaxFailures:     cfg.MaxFailures,
 		Logger:          log,

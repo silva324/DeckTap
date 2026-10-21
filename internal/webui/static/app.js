@@ -41,6 +41,19 @@
   let outQueue = Promise.resolve(), inQueue = Promise.resolve();
   let clockOffset = 0, wakeLock = null, toastTimer = null;
   let enteredPin = "";
+  const APP_VERSION = "0.7.1";
+
+  function updateAppVersionLabels() {
+    const rawHost = state && state.hostVersion ? String(state.hostVersion).replace(/^v/, "") : "";
+    let display = `DeckTap v${APP_VERSION}`;
+    if (rawHost && rawHost !== APP_VERSION) {
+      display = `DeckTap v${APP_VERSION} (Host v${rawHost})`;
+    }
+    const aboutEl = $("about-app-version");
+    if (aboutEl) aboutEl.textContent = `${display} · GitHub`;
+    const readyEl = $("ready-app-version");
+    if (readyEl) readyEl.textContent = display;
+  }
 
   // ------------------------------------------------------------ preferences
   let fontSize = prefs.get("font", 22), theme = prefs.get("theme", "auto");
@@ -329,6 +342,7 @@
     if (!state) { show("screen-connecting"); return; }
     if (state.isPresenting) renderShow(); else renderReady();
     updatePointerWatermark();
+    updateAppVersionLabels();
   }
 
   function renderReady() {

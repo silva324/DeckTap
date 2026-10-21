@@ -1,5 +1,5 @@
 /* DeckTap Service Worker – PWA offline caching, resilient recovery & installability */
-const CACHE_NAME = "decktap-v2.7";
+const CACHE_NAME = "decktap-v2.8";
 const ASSETS = [
   "./",
   "index.html",

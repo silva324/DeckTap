@@ -5,6 +5,7 @@ package tray
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"fyne.io/systray"
@@ -48,6 +49,8 @@ func setup(h *app.Host, openURL func(string)) {
 	mQR := systray.AddMenuItem("Show pairing QR…", "Open the pairing page on this computer")
 	mReset := systray.AddMenuItem("Reset pairing (new QR)", "Disconnect the phone and rotate all keys")
 	systray.AddSeparator()
+	mAbout := systray.AddMenuItem("About DeckTap…", "View DeckTap on GitHub")
+	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit DeckTap", "Stop the tunnel and quit")
 
 	update := func() {
@@ -74,6 +77,15 @@ func setup(h *app.Host, openURL func(string)) {
 			mUpdate.Show()
 		} else {
 			mUpdate.Hide()
+		}
+		verLabel := s.Version
+		if verLabel != "" {
+			if !strings.HasPrefix(verLabel, "v") {
+				verLabel = "v" + verLabel
+			}
+			mAbout.SetTitle("About DeckTap (" + verLabel + ")…")
+		} else {
+			mAbout.SetTitle("About DeckTap…")
 		}
 		title := ""
 		if s.Show.Presenting && s.Show.Total > 0 {
@@ -109,6 +121,8 @@ func setup(h *app.Host, openURL func(string)) {
 			case <-mReset.ClickedCh:
 				h.Reset()
 				openURL(h.AdminURL())
+			case <-mAbout.ClickedCh:
+				_ = OpenURL("https://github.com/silva324/DeckTap")
 			case <-mQuit.ClickedCh:
 				systray.Quit()
 				return
