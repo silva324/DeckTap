@@ -52,6 +52,22 @@
   }
 
   // ------------------------------------------------------------ ui helpers
+  function cleanTitle(t, fallback) {
+    if (!t) return fallback || "";
+    const s = String(t).trim();
+    if (!s || s.toLowerCase() === "missing value" || s.toLowerCase() === "<missing value>" || s === "undefined" || s === "null") {
+      return fallback || "";
+    }
+    return s;
+  }
+  function cleanNotes(n) {
+    if (!n) return "";
+    const s = String(n).trim();
+    if (!s || s.toLowerCase() === "missing value" || s.toLowerCase() === "<missing value>") {
+      return "";
+    }
+    return n;
+  }
   function show(id) { for (const s of document.querySelectorAll(".screen")) s.classList.toggle("hidden", s.id !== id); }
   function message(title, text, retry, badge) {
     $("msg-title").textContent = title; $("msg-text").textContent = text;
@@ -289,9 +305,9 @@
   function renderReady() {
     show("screen-ready");
     const s = state, btn = $("btn-start");
-    let name = s.presentation || "No presentation open", meta = "", ok = true;
+    let name = cleanTitle(s.presentation, "No presentation open"), meta = "", ok = true;
     if (!s.appRunning) { name = "PowerPoint is not running"; meta = "Open your presentation on the laptop."; ok = false; }
-    else if (!s.presentation) { meta = "Open a presentation in PowerPoint on the laptop."; ok = false; }
+    else if (!s.presentation || !cleanTitle(s.presentation)) { meta = "Open a presentation in PowerPoint on the laptop."; ok = false; }
     else {
       const withNotes = deck && deck.slides ? deck.slides.filter((x) => x.hasNotes).length : null;
       meta = `${s.totalSlides} slides` + (withNotes === null ? "" : ` · ${withNotes} with notes`);
@@ -307,13 +323,16 @@
     const s = state;
     $("pos-cur").textContent = s.currentSlide || "–";
     $("pos-total").textContent = s.totalSlides || "–";
-    $("show-deck-title").textContent = s.presentation || "Presentation";
+    $("show-deck-title").textContent = cleanTitle(s.presentation, "Presentation");
     $("progress-bar").style.width = s.totalSlides ? (100 * s.currentSlide / s.totalSlides) + "%" : "0";
-    $("slide-title").textContent = s.title || `Slide ${s.currentSlide}`;
-    $("next-title").textContent = s.ended ? "" : s.nextSlide ? `Next: ${s.nextTitle || "Slide " + s.nextSlide}` : "Last slide";
+    $("slide-title").textContent = cleanTitle(s.title, `Slide ${s.currentSlide || 1}`);
+    const nextFallback = s.nextSlide ? `Slide ${s.nextSlide}` : "";
+    const nextClean = cleanTitle(s.nextTitle, nextFallback);
+    $("next-title").textContent = s.ended ? "" : s.nextSlide ? `Next: ${nextClean}` : "Last slide";
     const notes = $("notes");
-    notes.textContent = s.notes || "No notes for this slide.";
-    notes.classList.toggle("empty", !s.notes);
+    const cNotes = cleanNotes(s.notes);
+    notes.textContent = cNotes || "No notes for this slide.";
+    notes.classList.toggle("empty", !cNotes);
     if (notes.dataset.idx !== String(s.currentSlide)) { notes.scrollTop = 0; notes.dataset.idx = s.currentSlide; }
     let line = "", warn = false;
     if (s.ended) line = "End of slide show: Next exits, Prev goes back";
@@ -381,7 +400,7 @@
       if (sl.hidden) li.className = "is-hidden";
       li.dataset.n = sl.n;
       const n = document.createElement("span"); n.className = "n"; n.textContent = sl.n;
-      const t = document.createElement("span"); t.className = "name"; t.textContent = sl.title || "(untitled)";
+      const t = document.createElement("span"); t.className = "name"; t.textContent = cleanTitle(sl.title, `Slide ${sl.n}`);
       li.append(n, t);
       li.addEventListener("click", () => { closeSheet(); command("GOTO", sl.n); });
       ul.appendChild(li);
@@ -631,16 +650,16 @@
 
     const cur = state ? (state.currentSlide || 1) : 1;
     const tot = state ? (state.totalSlides || 1) : 1;
-    const title = (state && state.title) ? state.title : ("Slide " + cur);
+    const title = cleanTitle(state && state.title, "Slide " + cur);
 
     if (wmTitle) wmTitle.textContent = title;
     if (wmNum) wmNum.textContent = cur;
     if (wmTag) wmTag.textContent = cur + " / " + tot;
 
     if (wmContent) {
-      const notes = (state && state.notes) ? state.notes.trim() : "";
-      if (notes) {
-        const lines = notes.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 3);
+      const cNotes = cleanNotes(state && state.notes);
+      if (cNotes) {
+        const lines = cNotes.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 3);
         wmContent.innerHTML = lines.map(l => `<div class="wm-line">• ${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`).join("");
       } else {
         wmContent.innerHTML = `<div class="wm-line" style="opacity: 0.18;">Widescreen 16:9 Canvas</div>`;

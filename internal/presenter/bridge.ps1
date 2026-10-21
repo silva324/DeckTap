@@ -58,7 +58,21 @@ function Get-Slides {
     $list = New-Object System.Collections.ArrayList
     foreach ($s in $p.Slides) {
         $t = ''; $n = ''
-        try { if ($s.Shapes.HasTitle) { $t = $s.Shapes.Title.TextFrame.TextRange.Text } } catch {}
+        try { if ($s.Shapes.HasTitle) { $t = $s.Shapes.Title.TextFrame.TextRange.Text.Trim() } } catch {}
+        if (-not $t) {
+            try {
+                $bestTop = 999999.0
+                foreach ($ph in $s.Shapes.Placeholders) {
+                    if ($ph.HasTextFrame -and $ph.TextFrame.HasText) {
+                        $txt = $ph.TextFrame.TextRange.Text.Trim()
+                        if ($txt -and $ph.Top -lt 450 -and $ph.Top -lt $bestTop) {
+                            $t = $txt
+                            $bestTop = $ph.Top
+                        }
+                    }
+                }
+            } catch {}
+        }
         try { $n = $s.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text } catch {}
         [void]$list.Add(@{ n = $s.SlideIndex; title = $t; notes = $n; hidden = ($s.SlideShowTransition.Hidden -eq -1) })
     }

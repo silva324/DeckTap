@@ -156,26 +156,88 @@ func (m *Mac) Status(ctx context.Context) (Status, error) {
 const notesScript = `
 set fieldSeparator to character id 31
 set recordSeparator to character id 30
+if application "Microsoft PowerPoint" is not running then return ""
 tell application "Microsoft PowerPoint"
+	if (count of presentations) is 0 then return ""
 	set curPres to active presentation
 	set slideCount to count of slides of curPres
 	set resultOutput to ""
 	repeat with sIdx from 1 to slideCount
 		set curSlide to slide sIdx of curPres
 		set slideTitle to ""
+		
+		-- 1. Try to find placeholder explicitly typed as title or center title
 		try
-			set slideTitle to content of text range of text frame of place holder 1 of curSlide
+			repeat with pIdx from 1 to (count of place holders of curSlide)
+				set ph to place holder pIdx of curSlide
+				try
+					set pType to (placeholder type of placeholder format of ph) as string
+					if pType contains "title" then
+						set candidate to (content of text range of text frame of ph) as string
+						if candidate is not "" and candidate is not "missing value" then
+							set slideTitle to candidate
+							exit repeat
+						end if
+					end if
+				end try
+			end repeat
 		end try
+		
+		-- 2. Fallback: Search place holders closest to top of slide (excluding bottom footer area > 450 pt)
+		if slideTitle is "" or slideTitle is "missing value" then
+			set bestTop to 999999.0
+			try
+				repeat with pIdx from 1 to (count of place holders of curSlide)
+					set ph to place holder pIdx of curSlide
+					try
+						set curTop to (top of ph) as real
+						if curTop < 450.0 and curTop < bestTop then
+							set candidate to (content of text range of text frame of ph) as string
+							if candidate is not "" and candidate is not "missing value" then
+								set slideTitle to candidate
+								set bestTop to curTop
+							end if
+						end if
+					end try
+				end repeat
+			end try
+		end if
+		
+		-- 3. Fallback: Any non-empty placeholder text
+		if slideTitle is "" or slideTitle is "missing value" then
+			try
+				repeat with pIdx from 1 to (count of place holders of curSlide)
+					set ph to place holder pIdx of curSlide
+					try
+						set candidate to (content of text range of text frame of ph) as string
+						if candidate is not "" and candidate is not "missing value" then
+							set slideTitle to candidate
+							exit repeat
+						end if
+					end try
+				end repeat
+			end try
+		end if
+		
+		-- Ensure clean string
+		if slideTitle is missing value or (slideTitle as string) is "missing value" then
+			set slideTitle to ""
+		end if
+		
+		-- Notes extraction
 		set noteText to ""
 		try
-			set noteText to content of text range of text frame of place holder 2 of notes page of curSlide
+			set candidateNote to content of text range of text frame of place holder 2 of notes page of curSlide
+			if candidateNote is not missing value and (candidateNote as string) is not "missing value" then
+				set noteText to candidateNote as string
+			end if
 		end try
 		if noteText is "" then
 			try
 				repeat with shp in shapes of notes page of curSlide
 					if has text frame of shp then
 						set candidate to content of text range of text frame of shp
-						if candidate is not "" and candidate is not (sIdx as string) then
+						if candidate is not missing value and candidate is not "" and candidate is not "missing value" and candidate is not (sIdx as string) then
 							set noteText to candidate
 							exit repeat
 						end if
@@ -183,6 +245,10 @@ tell application "Microsoft PowerPoint"
 				end repeat
 			end try
 		end if
+		if noteText is missing value or (noteText as string) is "missing value" then
+			set noteText to ""
+		end if
+		
 		set resultOutput to resultOutput & sIdx & fieldSeparator & slideTitle & fieldSeparator & noteText & recordSeparator
 	end repeat
 	return resultOutput
