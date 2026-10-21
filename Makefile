@@ -1,4 +1,4 @@
-.PHONY: all build build-darwin build-darwin-universal build-windows test lint doctor demo clean run
+.PHONY: all build build-darwin build-darwin-universal build-windows test lint doctor demo clean run verify
 
 BINARY_NAME=pptx-remote
 BUILD_DIR=bin
@@ -27,6 +27,9 @@ build-windows:
 	@echo "Built $(BUILD_DIR)/$(BINARY_NAME).exe (Windows, GUI mode)"
 
 build-all: build-darwin-universal build-windows
+
+verify:
+	@./scripts/agent-verify.sh
 
 test:
 	go test -v ./...
