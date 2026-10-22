@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/silva324/DeckTap/compare/v0.10.0...v0.10.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **session:** ensure monotonic host seq and add pure-js qr scanner fallback for ios ([#48](https://github.com/silva324/DeckTap/issues/48)) ([12d6a11](https://github.com/silva324/DeckTap/commit/12d6a1133c79a7c50ce0030d13ff27fcf09a8038))
+
 ## [0.10.0](https://github.com/silva324/DeckTap/compare/v0.9.0...v0.10.0) (2026-10-22)
 
 
