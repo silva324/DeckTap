@@ -69,6 +69,7 @@ type testPhone struct {
 
 func pair(t *testing.T, h *Host, origin string) *testPhone {
 	t.Helper()
+	waitFor(t, "deck ready", func() bool { return h.Sync.Status().Total > 0 })
 	url := h.PairingURL()
 	frag := url[strings.Index(url, "#")+1:]
 	if idx := strings.Index(frag, "@"); idx != -1 {
