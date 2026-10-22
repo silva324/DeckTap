@@ -41,7 +41,7 @@
   let outQueue = Promise.resolve(), inQueue = Promise.resolve();
   let clockOffset = 0, wakeLock = null, toastTimer = null;
   let enteredPin = "";
-  const APP_VERSION = "0.7.1";
+  const APP_VERSION = "0.8.0";
 
   function updateAppVersionLabels() {
     const rawHost = state && state.hostVersion ? String(state.hostVersion).replace(/^v/, "") : "";

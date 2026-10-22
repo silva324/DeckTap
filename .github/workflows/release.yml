@@ -199,3 +199,12 @@ jobs:
           tag_name: ${{ needs.resolve-tag.outputs.tag_name }}
           prerelease: ${{ needs.resolve-tag.outputs.is_prerelease == 'true' }}
           files: checksums.txt
+
+  deploy-pages:
+    name: Deploy Web App to GitHub Pages
+    needs: resolve-tag
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-pages.yml
