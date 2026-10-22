@@ -37,12 +37,9 @@ func main() {
 		os.Exit(doctor(os.Args[2:]))
 	}
 
-	mode := flag.String("mode", "tunnel", "tunnel (public HTTPS) | local (127.0.0.1 only, for desktop testing)")
-	tunnelProvider := flag.String("tunnel", "auto", "tunnel provider: auto (Cloudflare with ngrok Port 443 fallback) | cloudflared | ngrok")
+	mode := flag.String("mode", "tunnel", "tunnel (public HTTPS) | lan (local Wi-Fi direct) | local (127.0.0.1 only, for desktop testing)")
 	port := flag.Int("port", 0, "local port (0 = OS-assigned)")
 	cloudflared := flag.String("cloudflared", "", "path to the cloudflared binary (default: auto-detect & auto-download)")
-	ngrokBin := flag.String("ngrok", "", "path to the ngrok binary (default: auto-detect & auto-download)")
-	ngrokToken := flag.String("ngrok-token", "", "ngrok auth token (or set DECKTAP_NGROK_TOKEN or NGROK_AUTHTOKEN env)")
 	demo := flag.String("demo", "", "use the demo controller with this .pptx instead of PowerPoint")
 	pwaURL := flag.String("pwa-url", app.DefaultPWAURL, "canonical PWA web app URL for pairing QR ('direct' for direct tunnel/LAN URL)")
 	noTray := flag.Bool("no-tray", false, "run in the terminal without a menu-bar/tray icon")
@@ -56,14 +53,6 @@ func main() {
 		return
 	}
 
-	tok := *ngrokToken
-	if tok == "" {
-		tok = os.Getenv("DECKTAP_NGROK_TOKEN")
-		if tok == "" {
-			tok = os.Getenv("NGROK_AUTHTOKEN")
-		}
-	}
-
 	interactive := isTerminal(os.Stdin) && isTerminal(os.Stdout)
 	log, closeLog := setupLogging(interactive, *verbose)
 	defer closeLog()
@@ -73,19 +62,16 @@ func main() {
 		fatal(log, err)
 	}
 	m := app.Mode(*mode)
-	if m != app.ModeTunnel && m != app.ModeLocal {
+	if m != app.ModeTunnel && m != app.ModeLAN && m != app.ModeLocal {
 		fatal(log, fmt.Errorf("unknown mode %q", *mode))
 	}
 	host := app.NewHost(app.Config{
-		Mode:           m,
-		TunnelProvider: app.TunnelProvider(*tunnelProvider),
-		Port:           *port,
-		Cloudflared:    *cloudflared,
-		Ngrok:          *ngrokBin,
-		NgrokToken:     tok,
-		PWAURL:         *pwaURL,
-		MaxFailures:    *maxFailures,
-		Version:        version,
+		Mode:        m,
+		Port:        *port,
+		Cloudflared: *cloudflared,
+		PWAURL:      *pwaURL,
+		MaxFailures: *maxFailures,
+		Version:     version,
 	}, ctl, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -94,7 +80,13 @@ func main() {
 		fatal(log, err)
 	}
 	var shutdownOnce sync.Once
-	shutdown := func() { shutdownOnce.Do(host.Shutdown) }
+	shutdown := func() {
+		shutdownOnce.Do(func() {
+			host.Shutdown()
+			time.Sleep(50 * time.Millisecond)
+			os.Exit(0)
+		})
+	}
 	defer shutdown() // also on panics in main: never leave the tunnel running
 
 	// Open the pairing page once the QR is ready, and keep the terminal QR up to date.
@@ -119,7 +111,7 @@ func main() {
 	})
 	if interactive {
 		fmt.Printf("\n  DeckTap %s · controller: %s · mode: %s\n", version, ctl.Name(), m)
-		fmt.Println("  Waiting for secure tunnel…   [R]+Enter = reset pairing · [Q]+Enter = quit")
+		fmt.Println("  Ready.   [R]+Enter = reset pairing · [M]+Enter = switch mode · [Q]+Enter = quit")
 		go readKeys(host, stop)
 	}
 
@@ -145,6 +137,14 @@ func readKeys(host *app.Host, quit func()) {
 		case "r":
 			fmt.Println("  Resetting pairing: new token, key and PIN…")
 			host.Reset()
+		case "m":
+			snap := host.Snapshot()
+			target := app.ModeLAN
+			if snap.Mode == app.ModeLAN {
+				target = app.ModeTunnel
+			}
+			fmt.Printf("  Switching mode to %s…\n", target)
+			_ = host.SetMode(target)
 		case "q":
 			quit()
 			return
@@ -168,7 +168,7 @@ func printQR(url, pin string) {
   │  Enter this PIN on your phone after scanning the QR code.  │
   └────────────────────────────────────────────────────────────┘
 `, pin)
-	fmt.Println("  Or open the pairing page from the menu-bar icon.  [R]+Enter = new QR & PIN · [Q]+Enter = quit")
+	fmt.Println("  Or open the pairing page from the menu-bar icon.  [R]+Enter = new QR & PIN · [M]+Enter = switch mode · [Q]+Enter = quit")
 }
 
 func showAdminWindow(u string) {

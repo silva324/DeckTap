@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -27,31 +26,21 @@ type Mode string
 
 const (
 	ModeTunnel Mode = "tunnel" // public https URL through tunnel (default)
+	ModeLAN    Mode = "lan"    // local area network (Wi-Fi direct, zero internet needed)
 	ModeLocal  Mode = "local"  // loopback only, for testing in a desktop browser
-)
-
-type TunnelProvider string
-
-const (
-	TunnelProviderAuto        TunnelProvider = "auto"        // try Cloudflare first; fallback to ngrok (Port 443) if blocked
-	TunnelProviderCloudflared TunnelProvider = "cloudflared" // Cloudflare quick tunnel only
-	TunnelProviderNgrok       TunnelProvider = "ngrok"       // ngrok Port 443 tunnel only
 )
 
 // DefaultPWAURL is the canonical PWA origin hosted on GitHub Pages.
 const DefaultPWAURL = "https://silva324.github.io/DeckTap/"
 
 type Config struct {
-	Mode           Mode
-	TunnelProvider TunnelProvider // "auto" (default) | "cloudflared" | "ngrok"
-	Port           int            // 0 = OS-assigned
-	Cloudflared    string
-	Ngrok          string
-	NgrokToken     string
-	PWAURL         string // Canonical PWA entry point (default: DefaultPWAURL). "direct" = direct tunnel URL.
-	MaxFailures    int
-	PollInterval   time.Duration
-	Version        string
+	Mode         Mode
+	Port         int // 0 = OS-assigned
+	Cloudflared  string
+	PWAURL       string // Canonical PWA entry point (default: DefaultPWAURL). "direct" = direct tunnel URL.
+	MaxFailures  int
+	PollInterval time.Duration
+	Version      string
 }
 
 // TunnelState values shown in the UI.
@@ -101,7 +90,6 @@ type Host struct {
 	tunnelState string
 	tunnelErr   string
 	publicURL   string
-	preferNgrok bool
 	supervising bool
 	listeners   []func()
 	stopping    bool
@@ -193,11 +181,8 @@ func (h *Host) allowedOrigin(origin string) bool {
 			}
 		}
 	}
-	// Allow trycloudflare and ngrok tunnel origins (e.g. from previously installed PWA or direct tunnel access)
-	if strings.HasSuffix(cleanOrigin, ".trycloudflare.com") ||
-		strings.HasSuffix(cleanOrigin, ".ngrok-free.app") ||
-		strings.HasSuffix(cleanOrigin, ".ngrok.app") ||
-		strings.HasSuffix(cleanOrigin, ".ngrok.io") {
+	// Allow trycloudflare tunnel origins (e.g. from previously installed PWA or direct tunnel access)
+	if strings.HasSuffix(cleanOrigin, ".trycloudflare.com") {
 		return true
 	}
 	if h.ln != nil {
@@ -205,14 +190,31 @@ func (h *Host) allowedOrigin(origin string) bool {
 		if cleanOrigin == "http://127.0.0.1:"+port || cleanOrigin == "http://localhost:"+port {
 			return true
 		}
+		// In LAN mode, allow connections originating from local or private IP addresses on this port
+		if u, err := url.Parse(cleanOrigin); err == nil && u.Scheme == "http" && u.Port() == port {
+			host := u.Hostname()
+			if ip := net.ParseIP(host); ip != nil {
+				if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+					return true
+				}
+			}
+			lanIP := tunnel.GetPreferredOutboundIP()
+			if host == lanIP {
+				return true
+			}
+		}
 	}
 	return false
 }
 
-// Start binds 127.0.0.1 only (never 0.0.0.0), starts polling, the admin page and the tunnel.
+// Start binds loopback (or 0.0.0.0 in LAN mode), starts polling, the admin page and the tunnel.
 func (h *Host) Start(parent context.Context) error {
 	h.ctx, h.cancel = context.WithCancel(parent)
-	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(h.cfg.Port)))
+	bindHost := "127.0.0.1"
+	if h.cfg.Mode == ModeLAN {
+		bindHost = "0.0.0.0"
+	}
+	ln, err := net.Listen("tcp", net.JoinHostPort(bindHost, strconv.Itoa(h.cfg.Port)))
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
@@ -241,6 +243,9 @@ func (h *Host) Start(parent context.Context) error {
 	a.SetQuitHandler(h.Quit)
 	a.SetCheckUpdateHandler(h.CheckUpdate)
 	a.SetReloadDeckHandler(h.ReloadDeck)
+	a.SetModeHandler(func(m string) error {
+		return h.SetMode(Mode(m))
+	})
 	h.admin = a
 	h.updater.StartBackgroundCheck(h.ctx, 1*time.Hour)
 	go h.Sync.Run(h.ctx)
@@ -332,66 +337,11 @@ func (h *Host) superviseTunnel() {
 }
 
 func (h *Host) startTunnel(ctx context.Context) (*tunnel.Tunnel, error) {
-	provider := h.cfg.TunnelProvider
-	if provider == "" {
-		provider = TunnelProviderAuto
-	}
-
-	h.mu.Lock()
-	preferNgrok := h.preferNgrok
-	h.mu.Unlock()
-
-	// If configured for ngrok or if Cloudflare previously failed in Auto mode
-	if provider == TunnelProviderNgrok || (provider == TunnelProviderAuto && preferNgrok) {
-		bin, err := tunnel.FindNgrokBinary(h.cfg.Ngrok)
-		if err != nil {
-			return nil, err
-		}
-		return tunnel.StartNgrok(ctx, bin, h.Port(), h.cfg.NgrokToken, h.log)
-	}
-
-	// Cloudflare path
 	bin, err := tunnel.FindBinary(h.cfg.Cloudflared)
 	if err != nil {
-		if provider == TunnelProviderAuto {
-			// If cloudflared binary is not found, attempt ngrok fallback immediately
-			if ngrokBin, nerr := tunnel.FindNgrokBinary(h.cfg.Ngrok); nerr == nil {
-				h.log.Info("cloudflared not found; falling back to ngrok (Port 443)", "bin", ngrokBin)
-				h.mu.Lock()
-				h.preferNgrok = true
-				h.mu.Unlock()
-				return tunnel.StartNgrok(ctx, ngrokBin, h.Port(), h.cfg.NgrokToken, h.log)
-			}
-		}
 		return nil, err
 	}
-
-	// In Auto mode, timeout early if Cloudflare port 7844 is blocked
-	cfCtx := ctx
-	var cfCancel context.CancelFunc
-	if provider == TunnelProviderAuto {
-		cfCtx, cfCancel = context.WithTimeout(ctx, 12*time.Second)
-		defer cfCancel()
-	}
-
-	t, err := tunnel.Start(cfCtx, bin, h.Port(), h.log)
-	if err != nil && provider == TunnelProviderAuto {
-		errStr := err.Error()
-		if strings.Contains(errStr, "7844") || strings.Contains(errStr, "timeout") ||
-			strings.Contains(errStr, "blocked") || strings.Contains(errStr, "failed to connect") ||
-			errors.Is(cfCtx.Err(), context.DeadlineExceeded) {
-			h.log.Warn("Cloudflare tunnel failed (port 7844 blocked by firewall); falling back to ngrok on Port 443...", "err", err)
-			if ngrokBin, nerr := tunnel.FindNgrokBinary(h.cfg.Ngrok); nerr == nil {
-				h.mu.Lock()
-				h.preferNgrok = true
-				h.mu.Unlock()
-				return tunnel.StartNgrok(ctx, ngrokBin, h.Port(), h.cfg.NgrokToken, h.log)
-			} else {
-				h.log.Warn("ngrok fallback unavailable", "err", nerr)
-			}
-		}
-	}
-	return t, err
+	return tunnel.Start(ctx, bin, h.Port(), h.log)
 }
 
 func (h *Host) stopTunnel(state string) {
@@ -432,7 +382,7 @@ func (h *Host) Reset() {
 	h.notify()
 }
 
-// DirectURL returns the direct tunnel or loopback URL without canonical PWA wrapping.
+// DirectURL returns the direct tunnel, LAN, or loopback URL without canonical PWA wrapping.
 func (h *Host) DirectURL() string {
 	frag := h.Hub.Fragment()
 	if frag == "" {
@@ -446,6 +396,13 @@ func (h *Host) DirectURL() string {
 			return ""
 		}
 		return h.publicURL + "/#" + frag
+	case ModeLAN:
+		if h.ln == nil {
+			return ""
+		}
+		ip := tunnel.GetPreferredOutboundIP()
+		port := h.ln.Addr().(*net.TCPAddr).Port
+		return fmt.Sprintf("http://%s:%d/#%s", ip, port, frag)
 	default:
 		if h.ln == nil {
 			return ""
@@ -478,6 +435,13 @@ func (h *Host) PairingURL() string {
 			return fmt.Sprintf("%s#%s@%s", basePWA, frag, tunnelHost)
 		}
 		return h.publicURL + "/#" + frag
+	case ModeLAN:
+		if h.ln == nil {
+			return ""
+		}
+		ip := tunnel.GetPreferredOutboundIP()
+		port := h.ln.Addr().(*net.TCPAddr).Port
+		return fmt.Sprintf("http://%s:%d/#%s", ip, port, frag)
 	default:
 		if h.ln == nil {
 			return ""
@@ -500,10 +464,8 @@ func (h *Host) Snapshot() Snapshot {
 	s.Mode, s.TunnelState, s.TunnelError, s.PublicURL = h.cfg.Mode, h.tunnelState, h.tunnelErr, h.publicURL
 	if h.tun != nil && h.tun.Provider != "" {
 		s.TunnelProvider = h.tun.Provider
-	} else if h.cfg.TunnelProvider != "" {
-		s.TunnelProvider = string(h.cfg.TunnelProvider)
 	} else {
-		s.TunnelProvider = "auto"
+		s.TunnelProvider = "cloudflared"
 	}
 	h.mu.Unlock()
 	return s
@@ -514,6 +476,8 @@ func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	switch {
 	case s.Session.State == session.LockedOut || s.TunnelState == TunnelLocked:
 		headline, problem = "Connection paused: multiple incorrect PIN attempts. Click 'New Pairing Code' to resume.", true
+	case s.Mode == ModeLAN:
+		headline = "Ready · Local Wi-Fi (offline)"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelStarting:
 		headline = "Preparing secure connection…"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelFailed:
@@ -525,7 +489,11 @@ func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	}
 	switch {
 	case s.Session.State == session.Unpaired:
-		phone = "Scan QR code with your phone"
+		if s.Mode == ModeLAN {
+			phone = "Connect phone to same Wi-Fi & scan QR"
+		} else {
+			phone = "Scan QR code with your phone"
+		}
 	case s.Session.Connected:
 		phone = "Phone connected 🔒"
 	case s.Session.State == session.Paired:
@@ -550,6 +518,7 @@ func (h *Host) adminView() admin.View {
 	s := h.Snapshot()
 	headline, phone, show, problem := s.Describe()
 	v := admin.View{
+		Mode:           string(s.Mode),
 		Headline:       headline,
 		Detail:         phone + " · " + show,
 		PairingURL:     s.PairingURL,
@@ -560,6 +529,9 @@ func (h *Host) adminView() admin.View {
 		CurrentVersion: s.Version,
 		Update:         s.Update,
 	}
+	if s.Mode == ModeLAN {
+		v.LANIP = tunnel.GetPreferredOutboundIP()
+	}
 	if s.PublicURL != "" {
 		v.PublicHost = strings.TrimPrefix(s.PublicURL, "https://")
 	}
@@ -567,6 +539,90 @@ func (h *Host) adminView() admin.View {
 		v.Detail = phone + " · " + show + " · Remote control is active"
 	}
 	return v
+}
+
+// SetMode dynamically switches the host's operating mode between ModeTunnel, ModeLAN, and ModeLocal.
+func (h *Host) SetMode(m Mode) error {
+	h.mu.Lock()
+	if h.cfg.Mode == m {
+		h.mu.Unlock()
+		return nil
+	}
+	prevMode := h.cfg.Mode
+	h.cfg.Mode = m
+	h.mu.Unlock()
+
+	h.log.Info("switching operating mode", "from", prevMode, "to", m)
+
+	// Stop current tunnel if transitioning away from ModeTunnel
+	if prevMode == ModeTunnel {
+		h.supervisorExit(true)
+		h.stopTunnel(TunnelOff)
+	}
+
+	targetBind := "127.0.0.1"
+	if m == ModeLAN {
+		targetBind = "0.0.0.0"
+	}
+
+	h.mu.Lock()
+	currentPort := 0
+	if h.ln != nil {
+		currentPort = h.ln.Addr().(*net.TCPAddr).Port
+	}
+	h.mu.Unlock()
+
+	// Rebind listener if moving between LAN (0.0.0.0) and Tunnel/Local (127.0.0.1)
+	if (prevMode == ModeLAN && m != ModeLAN) || (prevMode != ModeLAN && m == ModeLAN) {
+		if err := h.rebindServer(targetBind, currentPort); err != nil {
+			h.log.Error("failed to rebind server for mode change", "mode", m, "err", err)
+		}
+	}
+
+	// Start tunnel supervisor if entering ModeTunnel
+	if m == ModeTunnel {
+		h.startTunnelSupervisor()
+	}
+
+	// Reset pairing credentials to burn old token/keys and generate fresh ones
+	h.Hub.Reset()
+	h.notify()
+	return nil
+}
+
+func (h *Host) rebindServer(bindHost string, port int) error {
+	h.mu.Lock()
+	oldSrv := h.srv
+	oldLn := h.ln
+	h.mu.Unlock()
+
+	if oldSrv != nil {
+		_ = oldSrv.Close()
+	}
+	if oldLn != nil {
+		_ = oldLn.Close()
+	}
+
+	ln, err := net.Listen("tcp", net.JoinHostPort(bindHost, strconv.Itoa(port)))
+	if err != nil {
+		ln, err = net.Listen("tcp", net.JoinHostPort(bindHost, "0"))
+		if err != nil {
+			return fmt.Errorf("rebind listen on %s: %w", bindHost, err)
+		}
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/ws", h.Hub)
+	mux.Handle("/", webui.Handler())
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+
+	h.mu.Lock()
+	h.ln = ln
+	h.srv = srv
+	h.mu.Unlock()
+
+	go srv.Serve(ln)
+	return nil
 }
 
 // ApplyUpdate opens the latest download or release URL.

@@ -304,51 +304,74 @@ func TestLiveNotesSyncAndRefresh(t *testing.T) {
 	h.ReloadDeck()
 }
 
-const fakeCloudflared7844Fail = `#!/bin/sh
-echo "ERR DialContext error: dial tcp 198.41.200.63:7844: i/o timeout" >&2
-exit 1
-`
-
-const fakeNgrokFallback = `#!/bin/sh
-echo '{"lvl":"info","msg":"started tunnel","url":"https://corporate-bypass.ngrok-free.app"}'
-exec sleep 60
-`
-
-func TestNgrokPort443Fallback(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("shell script fake")
-	}
-	cfBin := filepath.Join(t.TempDir(), "cloudflared")
-	os.WriteFile(cfBin, []byte(fakeCloudflared7844Fail), 0o755)
-
-	ngrokBin := filepath.Join(t.TempDir(), "ngrok")
-	os.WriteFile(ngrokBin, []byte(fakeNgrokFallback), 0o755)
-
-	ctl, err := presenter.NewDemo("../pptx/testdata/demo.pptx")
-	if err != nil {
-		t.Fatal(err)
+func TestLANMode(t *testing.T) {
+	h := newTestHost(t, ModeLAN)
+	snap := h.Snapshot()
+	if snap.Mode != ModeLAN {
+		t.Fatalf("expected ModeLAN, got %v", snap.Mode)
 	}
 
-	cfg := Config{
-		Mode:           ModeTunnel,
-		TunnelProvider: TunnelProviderAuto,
-		Cloudflared:    cfBin,
-		Ngrok:          ngrokBin,
-		PollInterval:   50 * time.Millisecond,
+	headline, phone, _, problem := snap.Describe()
+	if problem {
+		t.Fatalf("expected no problem in LAN mode snapshot, got true")
+	}
+	if !strings.Contains(headline, "Local Wi-Fi") {
+		t.Fatalf("expected headline to mention Local Wi-Fi, got %q", headline)
+	}
+	if !strings.Contains(phone, "same Wi-Fi") {
+		t.Fatalf("expected phone instruction to mention same Wi-Fi, got %q", phone)
 	}
 
-	h := NewHost(cfg, ctl, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	if err := h.Start(context.Background()); err != nil {
-		t.Fatal(err)
+	pURL := h.PairingURL()
+	if !strings.HasPrefix(pURL, "http://") {
+		t.Fatalf("expected pairing URL to start with http://, got %q", pURL)
 	}
-	t.Cleanup(h.Shutdown)
+	if !strings.Contains(pURL, "/#") {
+		t.Fatalf("expected pairing URL to contain /#, got %q", pURL)
+	}
 
-	waitFor(t, "ngrok fallback online", func() bool {
-		s := h.Snapshot()
-		return s.TunnelState == TunnelOnline && s.PublicURL == "https://corporate-bypass.ngrok-free.app" && s.TunnelProvider == "ngrok"
-	})
+	dURL := h.DirectURL()
+	if !strings.HasPrefix(dURL, "http://") {
+		t.Fatalf("expected direct URL to start with http://, got %q", dURL)
+	}
 
-	if !strings.Contains(h.PairingURL(), "corporate-bypass.ngrok-free.app") {
-		t.Fatalf("pairing URL must contain ngrok host, got %q", h.PairingURL())
+	port := strconv.Itoa(h.Port())
+	if !h.allowedOrigin("http://192.168.1.100:" + port) {
+		t.Fatalf("expected private LAN origin to be allowed")
+	}
+	if !h.allowedOrigin("http://10.0.0.5:" + port) {
+		t.Fatalf("expected 10.x.x.x private LAN origin to be allowed")
+	}
+	if h.allowedOrigin("http://evil-attacker.com:" + port) {
+		t.Fatalf("expected untrusted external origin to be disallowed")
+	}
+}
+
+func TestDynamicModeSwitch(t *testing.T) {
+	h := newTestHost(t, ModeLocal)
+	if h.Snapshot().Mode != ModeLocal {
+		t.Fatalf("expected initial ModeLocal")
+	}
+
+	// Switch to LAN mode
+	if err := h.SetMode(ModeLAN); err != nil {
+		t.Fatalf("SetMode(ModeLAN) failed: %v", err)
+	}
+	if h.Snapshot().Mode != ModeLAN {
+		t.Fatalf("expected ModeLAN after switch")
+	}
+	if !strings.HasPrefix(h.PairingURL(), "http://") {
+		t.Fatalf("expected LAN pairing URL after switch, got %q", h.PairingURL())
+	}
+
+	// Switch back to Local mode
+	if err := h.SetMode(ModeLocal); err != nil {
+		t.Fatalf("SetMode(ModeLocal) failed: %v", err)
+	}
+	if h.Snapshot().Mode != ModeLocal {
+		t.Fatalf("expected ModeLocal after switch")
+	}
+	if !strings.HasPrefix(h.PairingURL(), "http://127.0.0.1:") {
+		t.Fatalf("expected loopback pairing URL after switch back, got %q", h.PairingURL())
 	}
 }

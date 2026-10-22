@@ -25,11 +25,13 @@ import (
 
 // View is what the page shows.
 type View struct {
+	Mode           string
 	Headline       string
 	Detail         string
 	PairingURL     string // "" = no QR
 	DirectURL      string // direct tunnel or loopback URL
 	PublicHost     string
+	LANIP          string
 	PinCode        string // 4-digit visual PIN
 	Paired         bool
 	Problem        bool
@@ -49,6 +51,14 @@ type Server struct {
 	quit         func()
 	checkUpdate  func(context.Context) (updater.Status, error)
 	reloadDeck   func()
+	modeHandler  func(string) error
+}
+
+// SetModeHandler registers the callback invoked to change the network mode (e.g. tunnel vs lan).
+func (s *Server) SetModeHandler(fn func(string) error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.modeHandler = fn
 }
 
 // SetQuitHandler registers the callback invoked when the user quits from the desktop interface.
@@ -89,6 +99,7 @@ func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+s.secret+"/", s.page)
 	mux.HandleFunc("/"+s.secret+"/reset", s.doReset)
+	mux.HandleFunc("/"+s.secret+"/mode", s.doSetMode)
 	mux.HandleFunc("/"+s.secret+"/status", s.apiStatus)
 	mux.HandleFunc("/"+s.secret+"/update/apply", s.doUpdateApply)
 	mux.HandleFunc("/"+s.secret+"/update/manual", s.doUpdateManual)
@@ -246,6 +257,35 @@ func (s *Server) doQuit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) doSetMode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "http://"+s.ln.Addr().String() && o != "null" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Mode == "" {
+		req.Mode = r.FormValue("mode")
+	}
+	s.mu.Lock()
+	handler := s.modeHandler
+	s.mu.Unlock()
+
+	if handler != nil && (req.Mode == "tunnel" || req.Mode == "lan" || req.Mode == "local") {
+		if err := handler(req.Mode); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "mode": req.Mode})
+}
+
 func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "GET only", http.StatusMethodNotAllowed)
@@ -260,11 +300,13 @@ func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
+		"mode":           v.Mode,
 		"headline":       v.Headline,
 		"detail":         v.Detail,
 		"pairingURL":     v.PairingURL,
 		"directURL":      v.DirectURL,
 		"publicHost":     v.PublicHost,
+		"lanIP":          v.LANIP,
 		"pinCode":        v.PinCode,
 		"paired":         v.Paired,
 		"problem":        v.Problem,
@@ -698,6 +740,42 @@ body {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
 }
+.mode-switcher {
+  display: flex;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 16px;
+  gap: 4px;
+}
+.mode-tab {
+  flex: 1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s ease;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.mode-tab:hover {
+  color: var(--text);
+}
+.mode-tab.active {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--cyan);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
 </style>
 </head>
 <body>
@@ -766,6 +844,19 @@ body {
     </div>
   </div>
 
+  <div class="mode-switcher" id="mode-switcher">
+    <button type="button" class="mode-tab`)
+	if v.Mode != "lan" {
+		b.WriteString(" active")
+	}
+	b.WriteString(`" id="tab-tunnel" onclick="switchMode('tunnel')" title="Connect over the Internet (Cloudflare)">🌐 Cloud Tunnel</button>
+    <button type="button" class="mode-tab`)
+	if v.Mode == "lan" {
+		b.WriteString(" active")
+	}
+	b.WriteString(`" id="tab-lan" onclick="switchMode('lan')" title="Zero-Config Direct Connection over Local Wi-Fi or Hotspot">📶 Local Wi-Fi</button>
+  </div>
+
   <div id="unpaired-section" `)
 	if v.Paired {
 		b.WriteString(`style="display:none;"`)
@@ -810,7 +901,9 @@ body {
   </div>
 
   <div class="tunnel-info" id="tunnel-info">`)
-	if v.PublicHost != "" {
+	if v.Mode == "lan" {
+		b.WriteString("Local Wi-Fi Mode · Direct IP: " + html.EscapeString(v.LANIP) + " · Zero Internet Required")
+	} else if v.PublicHost != "" {
 		b.WriteString("Web App: silva324.github.io/DeckTap · Host: " + html.EscapeString(v.PublicHost))
 	} else {
 		b.WriteString("Web App: silva324.github.io/DeckTap")
@@ -829,12 +922,41 @@ body {
 <script>
 let lastPairingURL = ` + fmt.Sprintf("%q", v.PairingURL) + `;
 
+async function switchMode(mode) {
+  try {
+    const res = await fetch("mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode })
+    });
+    if (res.ok) {
+      updateModeTabs(mode);
+      refreshStatus();
+    }
+  } catch (e) {
+    console.error("switchMode failed", e);
+  }
+}
+
+function updateModeTabs(mode) {
+  const tabTunnel = document.getElementById("tab-tunnel");
+  const tabLAN = document.getElementById("tab-lan");
+  if (tabTunnel && tabLAN) {
+    tabTunnel.classList.toggle("active", mode !== "lan");
+    tabLAN.classList.toggle("active", mode === "lan");
+  }
+}
+
 async function refreshStatus() {
   try {
     const res = await fetch("status");
     if (!res.ok) return;
     const data = await res.json();
     
+    if (data.mode) {
+      updateModeTabs(data.mode);
+    }
+
     // Update badge
     const badge = document.getElementById("badge-status");
     const badgeTxt = document.getElementById("badge-text");
@@ -879,8 +1001,15 @@ async function refreshStatus() {
       if (qrCont) qrCont.innerHTML = data.qrSVG;
     }
 
-    if (data.publicHost) {
-      document.getElementById("tunnel-info").textContent = "Tunnel: " + data.publicHost;
+    const tInfo = document.getElementById("tunnel-info");
+    if (tInfo) {
+      if (data.mode === "lan") {
+        tInfo.textContent = "Local Wi-Fi Mode · Direct IP: " + (data.lanIP || "Local IP") + " · Zero Internet Required";
+      } else if (data.publicHost) {
+        tInfo.textContent = "Tunnel: " + data.publicHost;
+      } else {
+        tInfo.textContent = "Web App: silva324.github.io/DeckTap";
+      }
     }
 
     if (data.currentVersion) {
@@ -1109,18 +1238,25 @@ function showUpdateToast(msg, isErr) {
   }, 4000);
 }
 
+let isQuitting = false;
 async function quitDeckTap() {
-  if (!confirm("Are you sure you want to quit DeckTap?")) return;
+  if (isQuitting) return;
+  isQuitting = true;
   const btns = [document.getElementById("btn-quit"), document.getElementById("btn-header-quit")];
   btns.forEach(b => { if (b) { b.disabled = true; b.textContent = "⏳ Quitting…"; } });
   try {
     await fetch("quit", { method: "POST" });
-  } catch {}
+  } catch (e) {
+    console.warn("quit fetch failed", e);
+  }
   document.body.innerHTML = '<div style="text-align:center;padding:50px 20px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#94a3b8;">' +
     '<div style="font-size:44px;margin-bottom:12px;">👋</div>' +
     '<h2 style="color:#fff;margin-bottom:8px;font-size:20px;">DeckTap has shut down</h2>' +
-    '<p style="font-size:14px;color:#64748b;">The application has exited cleanly. You may close this window.</p>' +
+    '<p style="font-size:14px;color:#64748b;">The application has exited cleanly.</p>' +
     '</div>';
+  setTimeout(() => {
+    try { window.close(); } catch {}
+  }, 300);
 }
 const bQuit = document.getElementById("btn-quit");
 if (bQuit) bQuit.addEventListener("click", quitDeckTap);
