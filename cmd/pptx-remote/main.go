@@ -80,7 +80,13 @@ func main() {
 		fatal(log, err)
 	}
 	var shutdownOnce sync.Once
-	shutdown := func() { shutdownOnce.Do(host.Shutdown) }
+	shutdown := func() {
+		shutdownOnce.Do(func() {
+			host.Shutdown()
+			time.Sleep(50 * time.Millisecond)
+			os.Exit(0)
+		})
+	}
 	defer shutdown() // also on panics in main: never leave the tunnel running
 
 	// Open the pairing page once the QR is ready, and keep the terminal QR up to date.

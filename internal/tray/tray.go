@@ -164,6 +164,7 @@ func setup(h *app.Host, openURL func(string)) {
 			case <-mAbout.ClickedCh:
 				_ = OpenURL("https://github.com/silva324/DeckTap")
 			case <-mQuit.ClickedCh:
+				go h.Quit()
 				systray.Quit()
 				return
 			}

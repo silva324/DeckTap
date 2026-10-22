@@ -1238,18 +1238,25 @@ function showUpdateToast(msg, isErr) {
   }, 4000);
 }
 
+let isQuitting = false;
 async function quitDeckTap() {
-  if (!confirm("Are you sure you want to quit DeckTap?")) return;
+  if (isQuitting) return;
+  isQuitting = true;
   const btns = [document.getElementById("btn-quit"), document.getElementById("btn-header-quit")];
   btns.forEach(b => { if (b) { b.disabled = true; b.textContent = "⏳ Quitting…"; } });
   try {
     await fetch("quit", { method: "POST" });
-  } catch {}
+  } catch (e) {
+    console.warn("quit fetch failed", e);
+  }
   document.body.innerHTML = '<div style="text-align:center;padding:50px 20px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#94a3b8;">' +
     '<div style="font-size:44px;margin-bottom:12px;">👋</div>' +
     '<h2 style="color:#fff;margin-bottom:8px;font-size:20px;">DeckTap has shut down</h2>' +
-    '<p style="font-size:14px;color:#64748b;">The application has exited cleanly. You may close this window.</p>' +
+    '<p style="font-size:14px;color:#64748b;">The application has exited cleanly.</p>' +
     '</div>';
+  setTimeout(() => {
+    try { window.close(); } catch {}
+  }, 300);
 }
 const bQuit = document.getElementById("btn-quit");
 if (bQuit) bQuit.addEventListener("click", quitDeckTap);

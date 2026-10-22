@@ -9,20 +9,26 @@ package nativewin
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
 
-@interface DeckTapWindowDelegate : NSObject <NSWindowDelegate>
-@end
-
-@implementation DeckTapWindowDelegate
-- (BOOL)windowShouldClose:(NSWindow *)sender {
-    [sender orderOut:nil];
-    return NO;
-}
+@interface DeckTapWindowDelegate : NSObject <NSWindowDelegate, WKUIDelegate>
 @end
 
 static NSWindow *pairingWin = nil;
 static WKWebView *pairingWeb = nil;
 static DeckTapWindowDelegate *winDel = nil;
 static id keyMonitor = nil;
+
+@implementation DeckTapWindowDelegate
+- (BOOL)windowShouldClose:(NSWindow *)sender {
+    [sender orderOut:nil];
+    return NO;
+}
+
+- (void)webViewDidClose:(WKWebView *)webView {
+    if (pairingWin != nil) {
+        [pairingWin orderOut:nil];
+    }
+}
+@end
 
 static void openNativeWindow(const char *cUrl, const char *cTitle, int w, int h) {
     if (!cUrl) return;
@@ -79,6 +85,7 @@ static void openNativeWindow(const char *cUrl, const char *cTitle, int w, int h)
             WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
             pairingWeb = [[WKWebView alloc] initWithFrame:[[pairingWin contentView] bounds] configuration:config];
             [pairingWeb setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+            [pairingWeb setUIDelegate:winDel];
 
             [[pairingWin contentView] addSubview:pairingWeb];
         } else {
