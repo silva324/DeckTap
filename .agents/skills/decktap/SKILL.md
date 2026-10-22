@@ -45,5 +45,10 @@ node -c internal/webui/static/app.js internal/webui/static/crypto.js
   3. Mandatory Lint & Verification: Run `./scripts/agent-verify.sh` (or `make verify`). All linter and test checks must pass with zero errors.
   4. Push your branch: `git push -u origin feat/<feature-name>`.
   5. Open a Pull Request targeting `main` for review.
+- **Multi-Agent Git Concurrency & Isolation:**
+  - When working in parallel with other agents, use dedicated Git worktrees (`git worktree add ../DeckTap-<topic> -b <branch> origin/main`) or isolated subagent workspaces to prevent index/HEAD clashes.
+  - Never execute blanket destructive commands (`git reset --hard`, `git clean -fd`, `git checkout .`). Discard changes only on explicitly targeted files.
+  - Never run blanket `git add .` or `git add -A`. Stage only files explicitly modified for the current task.
+  - Always branch from latest `origin/main` and rebase (`git rebase origin/main`) prior to opening PRs.
 - **Always use Conventional Commits:** Format all commit messages and PR titles strictly (`feat:`, `fix:`, `perf:`, `docs:`, `chore:`, `refactor:`) so Google's `release-please` can compute version bumps and generate changelogs automatically.
 - **Never leak secrets or notes:** Ephemeral keys, pairing PINs, and presentation content must never be logged to console or exposed unencrypted.
