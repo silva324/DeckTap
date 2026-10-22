@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.9.0](https://github.com/silva324/DeckTap/compare/v0.8.0...v0.9.0) (2026-10-22)
+
+
+### Features
+
+* **packaging:** add homebrew tap automation and installation docs ([#35](https://github.com/silva324/DeckTap/issues/35)) ([06b6f26](https://github.com/silva324/DeckTap/commit/06b6f2691276725a11f1c28104cbdc3100e83532))
+
+
+### Bug Fixes
+
+* **ci:** avoid MSYS path conversion for Inno Setup compiler flag ([#38](https://github.com/silva324/DeckTap/issues/38)) ([c3921c9](https://github.com/silva324/DeckTap/commit/c3921c9c97d3bb9c778a4d3f58f1dd843121a373))
+* **ci:** fix Windows release package zip command on Windows runners ([#37](https://github.com/silva324/DeckTap/issues/37)) ([5739395](https://github.com/silva324/DeckTap/commit/5739395b209730ed9ae7dcd3274c8ce8341ae442))
+* **windows:** honor MyAppVersion define from command line in installer script ([#39](https://github.com/silva324/DeckTap/issues/39)) ([0bd863a](https://github.com/silva324/DeckTap/commit/0bd863a73b274771c754f70e291fb423a1e4d8c9))
+
+
+### Documentation
+
+* **readme:** streamline features and roadmap, add quick start guide, and move protocol spec to docs ([#40](https://github.com/silva324/DeckTap/issues/40)) ([48b45e4](https://github.com/silva324/DeckTap/commit/48b45e44e6cdf22b58e0b6e1aab3a69fe5e24194))
+
 ## [0.8.0](https://github.com/silva324/DeckTap/compare/v0.7.1...v0.8.0) (2026-10-21)
 
 
