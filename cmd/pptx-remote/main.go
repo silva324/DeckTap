@@ -37,9 +37,12 @@ func main() {
 		os.Exit(doctor(os.Args[2:]))
 	}
 
-	mode := flag.String("mode", "tunnel", "tunnel (public HTTPS via cloudflared) | local (127.0.0.1 only, for desktop testing)")
+	mode := flag.String("mode", "tunnel", "tunnel (public HTTPS) | local (127.0.0.1 only, for desktop testing)")
+	tunnelProvider := flag.String("tunnel", "auto", "tunnel provider: auto (Cloudflare with ngrok Port 443 fallback) | cloudflared | ngrok")
 	port := flag.Int("port", 0, "local port (0 = OS-assigned)")
 	cloudflared := flag.String("cloudflared", "", "path to the cloudflared binary (default: auto-detect & auto-download)")
+	ngrokBin := flag.String("ngrok", "", "path to the ngrok binary (default: auto-detect & auto-download)")
+	ngrokToken := flag.String("ngrok-token", "", "ngrok auth token (or set DECKTAP_NGROK_TOKEN or NGROK_AUTHTOKEN env)")
 	demo := flag.String("demo", "", "use the demo controller with this .pptx instead of PowerPoint")
 	pwaURL := flag.String("pwa-url", app.DefaultPWAURL, "canonical PWA web app URL for pairing QR ('direct' for direct tunnel/LAN URL)")
 	noTray := flag.Bool("no-tray", false, "run in the terminal without a menu-bar/tray icon")
@@ -51,6 +54,14 @@ func main() {
 	if *showVersion {
 		fmt.Println("DeckTap", version)
 		return
+	}
+
+	tok := *ngrokToken
+	if tok == "" {
+		tok = os.Getenv("DECKTAP_NGROK_TOKEN")
+		if tok == "" {
+			tok = os.Getenv("NGROK_AUTHTOKEN")
+		}
 	}
 
 	interactive := isTerminal(os.Stdin) && isTerminal(os.Stdout)
@@ -66,12 +77,15 @@ func main() {
 		fatal(log, fmt.Errorf("unknown mode %q", *mode))
 	}
 	host := app.NewHost(app.Config{
-		Mode:        m,
-		Port:        *port,
-		Cloudflared: *cloudflared,
-		PWAURL:      *pwaURL,
-		MaxFailures: *maxFailures,
-		Version:     version,
+		Mode:           m,
+		TunnelProvider: app.TunnelProvider(*tunnelProvider),
+		Port:           *port,
+		Cloudflared:    *cloudflared,
+		Ngrok:          *ngrokBin,
+		NgrokToken:     tok,
+		PWAURL:         *pwaURL,
+		MaxFailures:    *maxFailures,
+		Version:        version,
 	}, ctl, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

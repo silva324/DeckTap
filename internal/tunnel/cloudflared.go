@@ -217,17 +217,6 @@ func downloadRelease(targetPath string) error {
 	return os.Rename(tempFile, targetPath)
 }
 
-// Tunnel is one running cloudflared process.
-type Tunnel struct {
-	URL  string
-	Host string
-
-	cmd      *exec.Cmd
-	done     chan struct{}
-	exitErr  error
-	stopOnce sync.Once
-}
-
 // Start launches cloudflared and blocks until the public URL is routable or ctx expires.
 func Start(ctx context.Context, binary string, localPort int, log *slog.Logger) (*Tunnel, error) {
 	cmd := exec.Command(binary, "tunnel", "--url", fmt.Sprintf("http://127.0.0.1:%d", localPort), "--no-autoupdate")
@@ -241,7 +230,7 @@ func Start(ctx context.Context, binary string, localPort int, log *slog.Logger) 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start cloudflared: %w", err)
 	}
-	t := &Tunnel{cmd: cmd, done: make(chan struct{})}
+	t := &Tunnel{cmd: cmd, done: make(chan struct{}), Provider: "cloudflared"}
 	urlCh := make(chan string, 1)
 	readyCh := make(chan struct{}, 1)
 
@@ -314,23 +303,4 @@ func Start(ctx context.Context, binary string, localPort int, log *slog.Logger) 
 		return nil, t.exitErr
 	}
 	return t, nil
-}
-
-// Done is closed when cloudflared exits.
-func (t *Tunnel) Done() <-chan struct{} { return t.done }
-
-// Err returns the exit reason once Done is closed.
-func (t *Tunnel) Err() error { return t.exitErr }
-
-// Stop kills cloudflared (idempotent) and waits briefly for it to exit.
-func (t *Tunnel) Stop() {
-	t.stopOnce.Do(func() {
-		if t.cmd.Process != nil {
-			t.cmd.Process.Kill()
-		}
-		select {
-		case <-t.done:
-		case <-time.After(3 * time.Second):
-		}
-	})
 }
