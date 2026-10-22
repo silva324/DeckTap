@@ -134,3 +134,74 @@ func TestServiceCheckMock(t *testing.T) {
 		t.Fatalf("expected opened release page URL, got %q", openedURL)
 	}
 }
+
+func TestServiceCheckETagConditional(t *testing.T) {
+	mockBody := `{
+		"tag_name": "v0.9.0",
+		"name": "DeckTap v0.9.0",
+		"html_url": "https://github.com/silva324/DeckTap/releases/tag/v0.9.0",
+		"body": "Release 0.9.0",
+		"assets": []
+	}`
+
+	callCount := 0
+	var lastIfNoneMatch string
+
+	svc := NewService("0.8.0", nil)
+	svc.client = &http.Client{
+		Transport: mockRoundTripper(func(r *http.Request) (*http.Response, error) {
+			callCount++
+			lastIfNoneMatch = r.Header.Get("If-None-Match")
+
+			if lastIfNoneMatch == `"etag-test-123"` {
+				return &http.Response{
+					StatusCode: http.StatusNotModified,
+					Header:     http.Header{},
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			}
+
+			h := make(http.Header)
+			h.Set("Content-Type", "application/json")
+			h.Set("ETag", `"etag-test-123"`)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     h,
+				Body:       io.NopCloser(strings.NewReader(mockBody)),
+			}, nil
+		}),
+	}
+
+	// First check: should fetch 200 OK and cache ETag
+	st1, err := svc.Check(t.Context())
+	if err != nil {
+		t.Fatalf("first check failed: %v", err)
+	}
+	if !st1.Available || st1.LatestVer != "v0.9.0" {
+		t.Fatalf("expected update available v0.9.0, got %+v", st1)
+	}
+	if lastIfNoneMatch != "" {
+		t.Fatalf("expected empty If-None-Match on first check, got %q", lastIfNoneMatch)
+	}
+	if svc.cachedETag != `"etag-test-123"` {
+		t.Fatalf("expected cachedETag to be stored, got %q", svc.cachedETag)
+	}
+
+	// Second check: should send If-None-Match and receive 304 Not Modified
+	st2, err := svc.Check(t.Context())
+	if err != nil {
+		t.Fatalf("second check failed: %v", err)
+	}
+	if lastIfNoneMatch != `"etag-test-123"` {
+		t.Fatalf("expected If-None-Match header, got %q", lastIfNoneMatch)
+	}
+	if !st2.Available || st2.LatestVer != "v0.9.0" {
+		t.Fatalf("expected cached status preserved on 304, got %+v", st2)
+	}
+
+	// Test InvalidateCache()
+	svc.InvalidateCache()
+	if svc.cachedETag != "" {
+		t.Fatalf("expected empty cachedETag after InvalidateCache()")
+	}
+}

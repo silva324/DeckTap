@@ -8,6 +8,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -46,6 +47,7 @@ type Server struct {
 	manualUpdate func() error
 	mu           sync.Mutex
 	quit         func()
+	checkUpdate  func(context.Context) (updater.Status, error)
 }
 
 // SetQuitHandler registers the callback invoked when the user quits from the desktop interface.
@@ -53,6 +55,13 @@ func (s *Server) SetQuitHandler(fn func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.quit = fn
+}
+
+// SetCheckUpdateHandler registers the callback invoked to check for updates on demand.
+func (s *Server) SetCheckUpdateHandler(fn func(context.Context) (updater.Status, error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.checkUpdate = fn
 }
 
 func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server, error) {
@@ -75,6 +84,7 @@ func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server
 	mux.HandleFunc("/"+s.secret+"/status", s.apiStatus)
 	mux.HandleFunc("/"+s.secret+"/update/apply", s.doUpdateApply)
 	mux.HandleFunc("/"+s.secret+"/update/manual", s.doUpdateManual)
+	mux.HandleFunc("/"+s.secret+"/update/check", s.doUpdateCheck)
 	mux.HandleFunc("/"+s.secret+"/quit", s.doQuit)
 	s.srv = &http.Server{Handler: s.guard(mux), ReadHeaderTimeout: 5 * time.Second}
 	go s.srv.Serve(ln)
@@ -155,6 +165,35 @@ func (s *Server) doUpdateManual(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
+func (s *Server) doUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "http://"+s.ln.Addr().String() && o != "null" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if s.checkUpdate == nil {
+		http.Error(w, "not configured", http.StatusNotFound)
+		return
+	}
+	st, err := s.checkUpdate(r.Context())
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":             true,
+		"available":      st.Available,
+		"latestVersion":  st.LatestVer,
+		"currentVersion": st.CurrentVer,
+		"releaseURL":     st.ReleaseURL,
+		"releaseNotes":   st.ReleaseNotes,
+	})
 }
 
 func (s *Server) doQuit(w http.ResponseWriter, r *http.Request) {
@@ -468,6 +507,11 @@ body {
 .footer-links {
   margin-top: 10px;
   font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .footer-link {
   color: var(--cyan);
@@ -478,6 +522,46 @@ body {
 .footer-link:hover {
   opacity: 1;
   text-decoration: underline;
+}
+.footer-sep {
+  color: var(--muted);
+  opacity: 0.4;
+}
+.footer-btn {
+  background: none;
+  border: none;
+  color: var(--cyan);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.8;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.footer-btn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+.footer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+.update-toast {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.update-toast.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* Update Card */
@@ -705,7 +789,10 @@ body {
 	b.WriteString(`</div>
   <div class="footer-links">
     <a href="https://github.com/silva324/DeckTap" target="_blank" rel="noopener" class="footer-link" id="footer-version-link">DeckTap ` + html.EscapeString(v.CurrentVersion) + ` · GitHub Repository</a>
+    <span class="footer-sep">·</span>
+    <button type="button" class="footer-btn" id="btn-check-update" onclick="checkUpdateNow()">Check for updates</button>
   </div>
+  <div id="update-toast" class="update-toast hidden"></div>
 </div>
 
 <script>
@@ -924,6 +1011,55 @@ document.getElementById("btn-copy-link").addEventListener("click", () => {
     });
   }
 });
+
+async function checkUpdateNow() {
+  const btn = document.getElementById("btn-check-update");
+  if (!btn) return;
+  btn.disabled = true;
+  const originalText = "Check for updates";
+  btn.textContent = "Checking…";
+
+  try {
+    const res = await fetch("update/check", { method: "POST" });
+    const data = await res.json();
+    if (!data.ok) {
+      showUpdateToast("Check failed: " + (data.error || "error"), true);
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
+    }
+    if (data.available) {
+      renderUpdate({
+        available: true,
+        latestVersion: data.latestVersion,
+        releaseURL: data.releaseURL,
+        releaseNotes: data.releaseNotes,
+        state: "idle"
+      });
+      showUpdateToast("✨ Update available: " + data.latestVersion);
+      btn.textContent = "Update available (" + data.latestVersion + ")";
+      btn.disabled = false;
+    } else {
+      showUpdateToast("✓ DeckTap is up to date (" + (data.currentVersion || "latest") + ")");
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  } catch (err) {
+    showUpdateToast("Network error checking for updates", true);
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+function showUpdateToast(msg, isErr) {
+  const toast = document.getElementById("update-toast");
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.className = "update-toast" + (isErr ? " error" : "");
+  setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 4000);
+}
 
 async function quitDeckTap() {
   if (!confirm("Are you sure you want to quit DeckTap?")) return;

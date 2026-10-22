@@ -222,8 +222,9 @@ func (h *Host) Start(parent context.Context) error {
 		return err
 	}
 	a.SetQuitHandler(h.Quit)
+	a.SetCheckUpdateHandler(h.CheckUpdate)
 	h.admin = a
-	h.updater.StartBackgroundCheck(h.ctx, 4*time.Hour)
+	h.updater.StartBackgroundCheck(h.ctx, 1*time.Hour)
 	go h.Sync.Run(h.ctx)
 
 	if h.cfg.Mode == ModeTunnel {
@@ -488,6 +489,13 @@ func (h *Host) adminView() admin.View {
 
 // ApplyUpdate opens the latest download or release URL.
 func (h *Host) ApplyUpdate() error { return h.updater.ApplyUpdate() }
+
+// CheckUpdate queries GitHub for the latest release on demand.
+func (h *Host) CheckUpdate(ctx context.Context) (updater.Status, error) {
+	st, err := h.updater.Check(ctx)
+	h.notify()
+	return st, err
+}
 
 // Updater returns the updater service instance.
 func (h *Host) Updater() *updater.Service { return h.updater }
