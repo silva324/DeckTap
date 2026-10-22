@@ -35,6 +35,62 @@ All commit messages and PR titles must follow [Conventional Commits](https://www
 - `chore(scope): ...` $\to$ Build, CI, or dependency adjustments
 - `perf(scope): ...` $\to$ Performance optimizations
 
+### 🔀 Rule 3: Multi-Agent Concurrency & Git Isolation
+Multiple autonomous agents may work concurrently on DeckTap. To ensure agents never stomp on each other's work or corrupt git state, every agent MUST abide by these isolation invariants:
+
+1. **Workspace & Working Copy Isolation (Git Worktrees):**
+   - Agents executing parallel tasks must **never** share a single mutable working directory if switching branches, modifying files, or committing concurrently.
+   - Use dedicated **Git Worktrees** or isolated subagent workspaces (`Workspace: 'branch'` or `'share'`):
+     ```bash
+     # Fetch latest main and spawn an isolated worktree for the task
+     git fetch origin main
+     git worktree add ../DeckTap-<unique-topic> -b <type>/<unique-topic> origin/main
+     cd ../DeckTap-<unique-topic>
+     ```
+   - Each worktree maintains its own independent `HEAD`, index, and file tree, preventing race conditions and branch-switching clashes.
+
+2. **Branch Directly from Latest `origin/main`:**
+   - Always base new topic branches on `origin/main`:
+     ```bash
+     git fetch origin main
+     git checkout -b <type>/<unique-topic> origin/main
+     ```
+   - Never branch from another agent's unmerged local branch unless explicitly collaborating on that PR.
+   - Always verify that proposed branch names are globally unique across all active local and remote branches (`git branch -a`).
+
+3. **Strict Non-Interference (No Blanket Destructive Commands):**
+   - **NEVER** run global destructive git commands that wipe uncommitted work or untracked files across the repository:
+     - ❌ `git reset --hard` (destroys concurrent work or detached HEAD states)
+     - ❌ `git clean -fd` (deletes untracked files created by parallel tasks)
+     - ❌ `git checkout .` or `git restore .` (reverts unstaged files indiscriminately)
+   - If an agent needs to revert its own changes, it must explicitly target only its owned files:
+     ```bash
+     git checkout -- path/to/my/file.go
+     ```
+
+4. **Explicit Atomic Staging (Never `git add .` or `git add -A`):**
+   - Never run blanket `git add .` or `git add -A`. An agent could accidentally stage another concurrent agent's files or artifacts.
+   - Always stage explicitly specified file paths:
+     ```bash
+     git add path/to/file1.go path/to/file2.js
+     ```
+
+5. **Rebase Before PR Submission:**
+   - Before opening or finalizing a PR, rebase cleanly onto the latest `origin/main` to integrate any concurrent merges:
+     ```bash
+     git fetch origin main
+     git rebase origin/main
+     ```
+   - If conflicts occur due to parallel work, resolve them in your own branch, re-run `./scripts/agent-verify.sh`, and push.
+
+6. **Worktree Lifecycle & Cleanup:**
+   - After a PR is merged, the agent must clean up its temporary worktree:
+     ```bash
+     cd <main-repo-dir>
+     git worktree remove ../DeckTap-<unique-topic>
+     git branch -d <type>/<unique-topic>
+     ```
+
 ---
 
 ## 2. Core Architectural Invariants
