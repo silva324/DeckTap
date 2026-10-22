@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/silva324/DeckTap/compare/v0.10.1...v0.11.0) (2026-10-22)
+
+
+### Features
+
+* **app:** add native local Wi-Fi LAN mode for offline and corporate presentations ([#52](https://github.com/silva324/DeckTap/issues/52)) ([71801d2](https://github.com/silva324/DeckTap/commit/71801d2fbe561d7ee35ef0eaa9221a061896f445))
+* **tunnel:** add ngrok port 443 fallback for corporate networks ([#50](https://github.com/silva324/DeckTap/issues/50)) ([526e1b2](https://github.com/silva324/DeckTap/commit/526e1b27c82b0daed83bbeea744d1ddffcc7193d))
+
 ## [0.10.1](https://github.com/silva324/DeckTap/compare/v0.10.0...v0.10.1) (2026-10-22)
 
 
