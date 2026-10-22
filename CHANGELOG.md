@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.10.0](https://github.com/silva324/DeckTap/compare/v0.9.0...v0.10.0) (2026-10-22)
+
+
+### Features
+
+* **updater:** check updates hourly with ETag caching and add on-demand update button ([#43](https://github.com/silva324/DeckTap/issues/43)) ([82e18d1](https://github.com/silva324/DeckTap/commit/82e18d16468e2d8cf8fc0f410d03d1a4f0322fab))
+
+
+### Bug Fixes
+
+* **ci:** grant pages and id-token write permissions for release workflows ([#42](https://github.com/silva324/DeckTap/issues/42)) ([e3f35b0](https://github.com/silva324/DeckTap/commit/e3f35b08a39a42ba4e8020ae9f1c42e412bca959))
+* **ci:** grant write permissions and pass token for release actions ([#47](https://github.com/silva324/DeckTap/issues/47)) ([a9606f2](https://github.com/silva324/DeckTap/commit/a9606f20ec62426a26a5f54c9c290aa7eb0bd810))
+* **sync:** live synchronize slide speaker notes and add on-demand refresh ([#45](https://github.com/silva324/DeckTap/issues/45)) ([1489402](https://github.com/silva324/DeckTap/commit/1489402def7ba49c54b8a20d3ec9fe614b6d3937))
+
+
+### Documentation
+
+* **agents:** add multi-agent concurrency and git isolation guide ([#44](https://github.com/silva324/DeckTap/issues/44)) ([148b94f](https://github.com/silva324/DeckTap/commit/148b94f52d0042c178a7605058c7d3883aab1e7c))
+
 ## [0.9.0](https://github.com/silva324/DeckTap/compare/v0.8.0...v0.9.0) (2026-10-22)
 
 
