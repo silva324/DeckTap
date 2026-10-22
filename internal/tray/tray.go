@@ -45,6 +45,9 @@ func setup(h *app.Host, openURL func(string)) {
 	mShow := systray.AddMenuItem("PowerPoint: —", "")
 	mShow.Disable()
 	systray.AddSeparator()
+	mModeTunnel := systray.AddMenuItemCheckbox("🌐 Cloud Tunnel (Internet)", "Connect over Internet tunnel (Cloudflare/ngrok)", h.Snapshot().Mode != app.ModeLAN)
+	mModeLAN := systray.AddMenuItemCheckbox("📶 Local Wi-Fi (Offline / Direct)", "Direct connection over local Wi-Fi or Hotspot", h.Snapshot().Mode == app.ModeLAN)
+	systray.AddSeparator()
 	mUpdate := systray.AddMenuItem("✨ Update Available…", "Download the latest version of DeckTap")
 	mUpdate.Hide()
 	mReloadDeck := systray.AddMenuItem("Reload notes & slides", "Re-read presentation notes and slides from PowerPoint")
@@ -80,6 +83,13 @@ func setup(h *app.Host, openURL func(string)) {
 			mUpdate.Show()
 		} else {
 			mUpdate.Hide()
+		}
+		if s.Mode == app.ModeLAN {
+			mModeLAN.Check()
+			mModeTunnel.Uncheck()
+		} else {
+			mModeTunnel.Check()
+			mModeLAN.Uncheck()
 		}
 		verLabel := s.Version
 		if verLabel != "" {
@@ -117,6 +127,10 @@ func setup(h *app.Host, openURL func(string)) {
 				update()
 			case <-tick.C:
 				update()
+			case <-mModeTunnel.ClickedCh:
+				_ = h.SetMode(app.ModeTunnel)
+			case <-mModeLAN.ClickedCh:
+				_ = h.SetMode(app.ModeLAN)
 			case <-mQR.ClickedCh:
 				openURL(h.AdminURL())
 			case <-mUpdate.ClickedCh:

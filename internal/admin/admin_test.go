@@ -20,6 +20,9 @@ func TestAdminPageGuarded(t *testing.T) {
 
 	resp, err := http.Get(s.URL())
 	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("skipping live socket test: network dial not permitted in sandbox: %v", err)
+		}
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(resp.Body)

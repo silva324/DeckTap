@@ -27,6 +27,7 @@ type Mode string
 
 const (
 	ModeTunnel Mode = "tunnel" // public https URL through tunnel (default)
+	ModeLAN    Mode = "lan"    // local area network (Wi-Fi direct, zero internet needed)
 	ModeLocal  Mode = "local"  // loopback only, for testing in a desktop browser
 )
 
@@ -205,14 +206,31 @@ func (h *Host) allowedOrigin(origin string) bool {
 		if cleanOrigin == "http://127.0.0.1:"+port || cleanOrigin == "http://localhost:"+port {
 			return true
 		}
+		// In LAN mode, allow connections originating from local or private IP addresses on this port
+		if u, err := url.Parse(cleanOrigin); err == nil && u.Scheme == "http" && u.Port() == port {
+			host := u.Hostname()
+			if ip := net.ParseIP(host); ip != nil {
+				if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+					return true
+				}
+			}
+			lanIP := tunnel.GetPreferredOutboundIP()
+			if host == lanIP {
+				return true
+			}
+		}
 	}
 	return false
 }
 
-// Start binds 127.0.0.1 only (never 0.0.0.0), starts polling, the admin page and the tunnel.
+// Start binds loopback (or 0.0.0.0 in LAN mode), starts polling, the admin page and the tunnel.
 func (h *Host) Start(parent context.Context) error {
 	h.ctx, h.cancel = context.WithCancel(parent)
-	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(h.cfg.Port)))
+	bindHost := "127.0.0.1"
+	if h.cfg.Mode == ModeLAN {
+		bindHost = "0.0.0.0"
+	}
+	ln, err := net.Listen("tcp", net.JoinHostPort(bindHost, strconv.Itoa(h.cfg.Port)))
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
@@ -241,6 +259,9 @@ func (h *Host) Start(parent context.Context) error {
 	a.SetQuitHandler(h.Quit)
 	a.SetCheckUpdateHandler(h.CheckUpdate)
 	a.SetReloadDeckHandler(h.ReloadDeck)
+	a.SetModeHandler(func(m string) error {
+		return h.SetMode(Mode(m))
+	})
 	h.admin = a
 	h.updater.StartBackgroundCheck(h.ctx, 1*time.Hour)
 	go h.Sync.Run(h.ctx)
@@ -432,7 +453,7 @@ func (h *Host) Reset() {
 	h.notify()
 }
 
-// DirectURL returns the direct tunnel or loopback URL without canonical PWA wrapping.
+// DirectURL returns the direct tunnel, LAN, or loopback URL without canonical PWA wrapping.
 func (h *Host) DirectURL() string {
 	frag := h.Hub.Fragment()
 	if frag == "" {
@@ -446,6 +467,13 @@ func (h *Host) DirectURL() string {
 			return ""
 		}
 		return h.publicURL + "/#" + frag
+	case ModeLAN:
+		if h.ln == nil {
+			return ""
+		}
+		ip := tunnel.GetPreferredOutboundIP()
+		port := h.ln.Addr().(*net.TCPAddr).Port
+		return fmt.Sprintf("http://%s:%d/#%s", ip, port, frag)
 	default:
 		if h.ln == nil {
 			return ""
@@ -478,6 +506,13 @@ func (h *Host) PairingURL() string {
 			return fmt.Sprintf("%s#%s@%s", basePWA, frag, tunnelHost)
 		}
 		return h.publicURL + "/#" + frag
+	case ModeLAN:
+		if h.ln == nil {
+			return ""
+		}
+		ip := tunnel.GetPreferredOutboundIP()
+		port := h.ln.Addr().(*net.TCPAddr).Port
+		return fmt.Sprintf("http://%s:%d/#%s", ip, port, frag)
 	default:
 		if h.ln == nil {
 			return ""
@@ -514,6 +549,8 @@ func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	switch {
 	case s.Session.State == session.LockedOut || s.TunnelState == TunnelLocked:
 		headline, problem = "Connection paused: multiple incorrect PIN attempts. Click 'New Pairing Code' to resume.", true
+	case s.Mode == ModeLAN:
+		headline = "Ready · Local Wi-Fi (offline)"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelStarting:
 		headline = "Preparing secure connection…"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelFailed:
@@ -525,7 +562,11 @@ func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	}
 	switch {
 	case s.Session.State == session.Unpaired:
-		phone = "Scan QR code with your phone"
+		if s.Mode == ModeLAN {
+			phone = "Connect phone to same Wi-Fi & scan QR"
+		} else {
+			phone = "Scan QR code with your phone"
+		}
 	case s.Session.Connected:
 		phone = "Phone connected 🔒"
 	case s.Session.State == session.Paired:
@@ -550,6 +591,7 @@ func (h *Host) adminView() admin.View {
 	s := h.Snapshot()
 	headline, phone, show, problem := s.Describe()
 	v := admin.View{
+		Mode:           string(s.Mode),
 		Headline:       headline,
 		Detail:         phone + " · " + show,
 		PairingURL:     s.PairingURL,
@@ -560,6 +602,9 @@ func (h *Host) adminView() admin.View {
 		CurrentVersion: s.Version,
 		Update:         s.Update,
 	}
+	if s.Mode == ModeLAN {
+		v.LANIP = tunnel.GetPreferredOutboundIP()
+	}
 	if s.PublicURL != "" {
 		v.PublicHost = strings.TrimPrefix(s.PublicURL, "https://")
 	}
@@ -567,6 +612,90 @@ func (h *Host) adminView() admin.View {
 		v.Detail = phone + " · " + show + " · Remote control is active"
 	}
 	return v
+}
+
+// SetMode dynamically switches the host's operating mode between ModeTunnel, ModeLAN, and ModeLocal.
+func (h *Host) SetMode(m Mode) error {
+	h.mu.Lock()
+	if h.cfg.Mode == m {
+		h.mu.Unlock()
+		return nil
+	}
+	prevMode := h.cfg.Mode
+	h.cfg.Mode = m
+	h.mu.Unlock()
+
+	h.log.Info("switching operating mode", "from", prevMode, "to", m)
+
+	// Stop current tunnel if transitioning away from ModeTunnel
+	if prevMode == ModeTunnel {
+		h.supervisorExit(true)
+		h.stopTunnel(TunnelOff)
+	}
+
+	targetBind := "127.0.0.1"
+	if m == ModeLAN {
+		targetBind = "0.0.0.0"
+	}
+
+	h.mu.Lock()
+	currentPort := 0
+	if h.ln != nil {
+		currentPort = h.ln.Addr().(*net.TCPAddr).Port
+	}
+	h.mu.Unlock()
+
+	// Rebind listener if moving between LAN (0.0.0.0) and Tunnel/Local (127.0.0.1)
+	if (prevMode == ModeLAN && m != ModeLAN) || (prevMode != ModeLAN && m == ModeLAN) {
+		if err := h.rebindServer(targetBind, currentPort); err != nil {
+			h.log.Error("failed to rebind server for mode change", "mode", m, "err", err)
+		}
+	}
+
+	// Start tunnel supervisor if entering ModeTunnel
+	if m == ModeTunnel {
+		h.startTunnelSupervisor()
+	}
+
+	// Reset pairing credentials to burn old token/keys and generate fresh ones
+	h.Hub.Reset()
+	h.notify()
+	return nil
+}
+
+func (h *Host) rebindServer(bindHost string, port int) error {
+	h.mu.Lock()
+	oldSrv := h.srv
+	oldLn := h.ln
+	h.mu.Unlock()
+
+	if oldSrv != nil {
+		_ = oldSrv.Close()
+	}
+	if oldLn != nil {
+		_ = oldLn.Close()
+	}
+
+	ln, err := net.Listen("tcp", net.JoinHostPort(bindHost, strconv.Itoa(port)))
+	if err != nil {
+		ln, err = net.Listen("tcp", net.JoinHostPort(bindHost, "0"))
+		if err != nil {
+			return fmt.Errorf("rebind listen on %s: %w", bindHost, err)
+		}
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/ws", h.Hub)
+	mux.Handle("/", webui.Handler())
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+
+	h.mu.Lock()
+	h.ln = ln
+	h.srv = srv
+	h.mu.Unlock()
+
+	go srv.Serve(ln)
+	return nil
 }
 
 // ApplyUpdate opens the latest download or release URL.

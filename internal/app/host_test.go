@@ -352,3 +352,75 @@ func TestNgrokPort443Fallback(t *testing.T) {
 		t.Fatalf("pairing URL must contain ngrok host, got %q", h.PairingURL())
 	}
 }
+
+func TestLANMode(t *testing.T) {
+	h := newTestHost(t, ModeLAN)
+	snap := h.Snapshot()
+	if snap.Mode != ModeLAN {
+		t.Fatalf("expected ModeLAN, got %v", snap.Mode)
+	}
+
+	headline, phone, _, problem := snap.Describe()
+	if problem {
+		t.Fatalf("expected no problem in LAN mode snapshot, got true")
+	}
+	if !strings.Contains(headline, "Local Wi-Fi") {
+		t.Fatalf("expected headline to mention Local Wi-Fi, got %q", headline)
+	}
+	if !strings.Contains(phone, "same Wi-Fi") {
+		t.Fatalf("expected phone instruction to mention same Wi-Fi, got %q", phone)
+	}
+
+	pURL := h.PairingURL()
+	if !strings.HasPrefix(pURL, "http://") {
+		t.Fatalf("expected pairing URL to start with http://, got %q", pURL)
+	}
+	if !strings.Contains(pURL, "/#") {
+		t.Fatalf("expected pairing URL to contain /#, got %q", pURL)
+	}
+
+	dURL := h.DirectURL()
+	if !strings.HasPrefix(dURL, "http://") {
+		t.Fatalf("expected direct URL to start with http://, got %q", dURL)
+	}
+
+	port := strconv.Itoa(h.Port())
+	if !h.allowedOrigin("http://192.168.1.100:" + port) {
+		t.Fatalf("expected private LAN origin to be allowed")
+	}
+	if !h.allowedOrigin("http://10.0.0.5:" + port) {
+		t.Fatalf("expected 10.x.x.x private LAN origin to be allowed")
+	}
+	if h.allowedOrigin("http://evil-attacker.com:" + port) {
+		t.Fatalf("expected untrusted external origin to be disallowed")
+	}
+}
+
+func TestDynamicModeSwitch(t *testing.T) {
+	h := newTestHost(t, ModeLocal)
+	if h.Snapshot().Mode != ModeLocal {
+		t.Fatalf("expected initial ModeLocal")
+	}
+
+	// Switch to LAN mode
+	if err := h.SetMode(ModeLAN); err != nil {
+		t.Fatalf("SetMode(ModeLAN) failed: %v", err)
+	}
+	if h.Snapshot().Mode != ModeLAN {
+		t.Fatalf("expected ModeLAN after switch")
+	}
+	if !strings.HasPrefix(h.PairingURL(), "http://") {
+		t.Fatalf("expected LAN pairing URL after switch, got %q", h.PairingURL())
+	}
+
+	// Switch back to Local mode
+	if err := h.SetMode(ModeLocal); err != nil {
+		t.Fatalf("SetMode(ModeLocal) failed: %v", err)
+	}
+	if h.Snapshot().Mode != ModeLocal {
+		t.Fatalf("expected ModeLocal after switch")
+	}
+	if !strings.HasPrefix(h.PairingURL(), "http://127.0.0.1:") {
+		t.Fatalf("expected loopback pairing URL after switch back, got %q", h.PairingURL())
+	}
+}

@@ -37,7 +37,7 @@ func main() {
 		os.Exit(doctor(os.Args[2:]))
 	}
 
-	mode := flag.String("mode", "tunnel", "tunnel (public HTTPS) | local (127.0.0.1 only, for desktop testing)")
+	mode := flag.String("mode", "tunnel", "tunnel (public HTTPS) | lan (local Wi-Fi direct) | local (127.0.0.1 only, for desktop testing)")
 	tunnelProvider := flag.String("tunnel", "auto", "tunnel provider: auto (Cloudflare with ngrok Port 443 fallback) | cloudflared | ngrok")
 	port := flag.Int("port", 0, "local port (0 = OS-assigned)")
 	cloudflared := flag.String("cloudflared", "", "path to the cloudflared binary (default: auto-detect & auto-download)")
@@ -73,7 +73,7 @@ func main() {
 		fatal(log, err)
 	}
 	m := app.Mode(*mode)
-	if m != app.ModeTunnel && m != app.ModeLocal {
+	if m != app.ModeTunnel && m != app.ModeLAN && m != app.ModeLocal {
 		fatal(log, fmt.Errorf("unknown mode %q", *mode))
 	}
 	host := app.NewHost(app.Config{
@@ -119,7 +119,7 @@ func main() {
 	})
 	if interactive {
 		fmt.Printf("\n  DeckTap %s · controller: %s · mode: %s\n", version, ctl.Name(), m)
-		fmt.Println("  Waiting for secure tunnel…   [R]+Enter = reset pairing · [Q]+Enter = quit")
+		fmt.Println("  Ready.   [R]+Enter = reset pairing · [M]+Enter = switch mode · [Q]+Enter = quit")
 		go readKeys(host, stop)
 	}
 
@@ -145,6 +145,14 @@ func readKeys(host *app.Host, quit func()) {
 		case "r":
 			fmt.Println("  Resetting pairing: new token, key and PIN…")
 			host.Reset()
+		case "m":
+			snap := host.Snapshot()
+			target := app.ModeLAN
+			if snap.Mode == app.ModeLAN {
+				target = app.ModeTunnel
+			}
+			fmt.Printf("  Switching mode to %s…\n", target)
+			_ = host.SetMode(target)
 		case "q":
 			quit()
 			return
@@ -168,7 +176,7 @@ func printQR(url, pin string) {
   │  Enter this PIN on your phone after scanning the QR code.  │
   └────────────────────────────────────────────────────────────┘
 `, pin)
-	fmt.Println("  Or open the pairing page from the menu-bar icon.  [R]+Enter = new QR & PIN · [Q]+Enter = quit")
+	fmt.Println("  Or open the pairing page from the menu-bar icon.  [R]+Enter = new QR & PIN · [M]+Enter = switch mode · [Q]+Enter = quit")
 }
 
 func showAdminWindow(u string) {

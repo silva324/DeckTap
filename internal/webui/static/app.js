@@ -1330,6 +1330,12 @@
     const parsed = C.parseFragment(hashPart);
     if (!parsed) return false;
 
+    if (location.protocol === "https:" && (targetProto === "http:" || (rawValue.startsWith("http://") && !rawValue.startsWith("https://")))) {
+      // Direct LAN connection: navigate to local host to avoid browser Mixed Content blocking (HTTPS -> ws://)
+      window.location.href = rawValue;
+      return true;
+    }
+
     buzz();
     stopScanner();
 
