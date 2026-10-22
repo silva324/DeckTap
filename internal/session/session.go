@@ -353,10 +353,11 @@ func (h *Hub) authenticate(conn *ws.Conn) (*client, bool) {
 			reason = "bad pairing token"
 		} else if len(h.pin) > 0 && subtle.ConstantTimeCompare([]byte(f.PIN), []byte(h.pin)) != 1 {
 			reason = "bad PIN"
+			h.hostSeq++
 			if failFrame, err := c.SealJSON(e2ee.HostToClient, map[string]any{
 				"type":  "AUTH_FAIL",
 				"error": "Invalid 4-digit PIN code. Please check presenter screen.",
-				"seq":   h.hostSeq + 1,
+				"seq":   h.hostSeq,
 			}); err == nil {
 				_ = conn.WriteText(failFrame)
 			}
@@ -380,7 +381,6 @@ func (h *Hub) authenticate(conn *ws.Conn) (*client, bool) {
 	if state == Unpaired {
 		h.token = nil // burn
 		h.state = Paired
-		h.hostSeq = 0
 	}
 	h.sid = e2ee.RandomBytes(16) // issued on pairing, rotated on every resume
 	h.lastClientSeq = f.Seq

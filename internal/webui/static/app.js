@@ -219,6 +219,12 @@
     clearTimeout(retryTimer);
     if (terminal || !key) return;
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    const sid = ss.get("sid");
+    const token = ss.get("token");
+    if (!sid && (!token || enteredPin.length !== 4)) {
+      // Cannot initiate pairing without the complete 4-digit PIN
+      return;
+    }
     if (!state && authed) show("screen-connecting");
     const targetHost = ss.get("server_host") || location.host;
     const targetProto = ss.get("server_proto") || (location.protocol === "https:" ? "https:" : "http:");
@@ -245,20 +251,24 @@
     lastHeartbeat = Date.now();
     clearTimeout(pendingPingTimeout);
     pendingPingTimeout = null;
+
+    if (m.type === "AUTH_OK") {
+      if (m.clientNonce !== pendingNonce) { console.warn("AUTH_OK nonce mismatch"); return; }
+      ss.set("sid", m.sessionId); ss.del("token"); // the pairing token is burned
+      ss.set("hseq", m.seq); // Initialize authenticated session sequence
+      authed = true; retries = 0;
+      clockOffset = (m.serverTime || Date.now()) - Date.now();
+      state = m.state || state;
+      $("conn").classList.add("hidden");
+      $("conn").textContent = "Reconnecting…";
+      startPing(); render();
+      return;
+    }
+
     const last = Number(ss.get("hseq") || 0);
     if (!(m.seq > last)) { console.warn("dropped frame: replayed seq", m.seq); return; }
     ss.set("hseq", m.seq);
     switch (m.type) {
-      case "AUTH_OK":
-        if (m.clientNonce !== pendingNonce) { console.warn("AUTH_OK nonce mismatch"); return; }
-        ss.set("sid", m.sessionId); ss.del("token"); // the pairing token is burned
-        authed = true; retries = 0;
-        clockOffset = (m.serverTime || Date.now()) - Date.now();
-        state = m.state || state;
-        $("conn").classList.add("hidden");
-        $("conn").textContent = "Reconnecting…";
-        startPing(); render();
-        break;
       case "AUTH_FAIL":
         triggerPinError(m.error || "Invalid PIN code");
         break;
@@ -474,7 +484,7 @@
   function onForeground() {
     if (document.visibilityState !== "visible") return;
     keepAwake();
-    if (key && (ss.get("sid") || ss.get("token"))) {
+    if (key && (ss.get("sid") || (ss.get("token") && enteredPin.length === 4))) {
       terminal = false; // Always permit re-connection when presenter returns to the app
       const dead = !ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING || (Date.now() - lastHeartbeat > 25000);
       if (dead) {
@@ -1103,6 +1113,45 @@
     }
   }
 
+  const scanCanvas = document.createElement("canvas");
+  const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+
+  async function detectQrCode(source) {
+    if (barcodeDetector) {
+      try {
+        const barcodes = await barcodeDetector.detect(source);
+        if (barcodes && barcodes.length > 0) {
+          for (const item of barcodes) {
+            if (item.rawValue) return item.rawValue;
+          }
+        }
+      } catch (e) {
+        // Fall through to jsQR fallback
+      }
+    }
+    if (typeof jsQR === "function") {
+      try {
+        const w = source.videoWidth || source.naturalWidth || source.width;
+        const h = source.videoHeight || source.naturalHeight || source.height;
+        if (w && h) {
+          const maxDim = 640;
+          const scale = Math.min(1, maxDim / Math.max(w, h));
+          const dw = Math.floor(w * scale);
+          const dh = Math.floor(h * scale);
+          scanCanvas.width = dw;
+          scanCanvas.height = dh;
+          scanCtx.drawImage(source, 0, 0, dw, dh);
+          const imgData = scanCtx.getImageData(0, 0, dw, dh);
+          const code = jsQR(imgData.data, dw, dh, { inversionAttempts: "dontInvert" });
+          if (code && code.data) return code.data;
+        }
+      } catch (e) {
+        console.warn("jsQR decode error:", e);
+      }
+    }
+    return null;
+  }
+
   let scannerActive = false;
   let scannerStream = null;
   let scanAnimFrame = null;
@@ -1160,7 +1209,7 @@
       }
 
       if (feedback) {
-        if (!barcodeDetector) {
+        if (!barcodeDetector && typeof jsQR !== "function") {
           feedback.textContent = "Live detector unsupported: use Upload or paste link below.";
         } else {
           feedback.textContent = "Point camera at QR code on laptop screen";
@@ -1237,14 +1286,12 @@
     if (!scannerActive) return;
     const video = $("scanner-video");
 
-    if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && barcodeDetector) {
+    if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
       try {
-        const barcodes = await barcodeDetector.detect(video);
-        if (barcodes && barcodes.length > 0) {
-          for (const item of barcodes) {
-            if (await handleScannedCode(item.rawValue)) {
-              return; // Matched and handled!
-            }
+        const rawValue = await detectQrCode(video);
+        if (rawValue) {
+          if (await handleScannedCode(rawValue)) {
+            return; // Matched and handled!
           }
         }
       } catch (e) {
@@ -1325,17 +1372,13 @@
     const img = new Image();
     img.onload = async () => {
       URL.revokeObjectURL(img.src);
-      if (barcodeDetector) {
-        try {
-          const barcodes = await barcodeDetector.detect(img);
-          if (barcodes && barcodes.length > 0) {
-            for (const item of barcodes) {
-              if (await handleScannedCode(item.rawValue)) return;
-            }
-          }
-        } catch (err) {
-          console.warn("BarcodeDetector image error:", err);
+      try {
+        const rawValue = await detectQrCode(img);
+        if (rawValue) {
+          if (await handleScannedCode(rawValue)) return;
         }
+      } catch (err) {
+        console.warn("Photo QR scan error:", err);
       }
       toast("No QR code detected in this photo");
     };
