@@ -121,6 +121,43 @@ func TestPairCommandAndTokenBurn(t *testing.T) {
 	q.hello2Fail(t)
 }
 
+func TestWrongPINFollowedByCorrectPIN(t *testing.T) {
+	h, srv, cmds := newHub(t, Options{})
+	frag := h.Fragment()
+
+	// 1. Phone attempts with incorrect PIN
+	p := dial(t, srv, h, frag)
+	p.pin = "0000"
+	if h.Pin() == "0000" {
+		p.pin = "1111"
+	}
+	p.seq++
+	p.send(map[string]any{"type": "AUTH_HELLO", "pairingToken": p.token, "clientNonce": "n-bad", "seq": p.seq, "ts": time.Now().Unix(), "pin": p.pin})
+	m, err := p.recv()
+	if err != nil || m["type"] != "AUTH_FAIL" {
+		t.Fatalf("expected AUTH_FAIL on bad PIN, got %v %v", m, err)
+	}
+	if s := uint64(m["seq"].(float64)); s != 1 {
+		t.Fatalf("expected AUTH_FAIL seq 1, got %d", s)
+	}
+
+	// 2. Phone re-attempts with correct PIN
+	p2 := dial(t, srv, h, frag)
+	p2.hseq = p.hseq // client remembers previous host sequence seen (1)
+	p2.seq = 1
+	p2.pin = h.Pin()
+	m2 := p2.hello() // hello() calls recv() which verifies s > p2.hseq and updates p2.hseq
+	if s := uint64(m2["seq"].(float64)); s != 2 {
+		t.Fatalf("AUTH_OK expected seq 2, got %d", s)
+	}
+
+	p2.seq++
+	p2.send(map[string]any{"seq": p2.seq, "sid": p2.sid, "action": "NEXT"})
+	if c := <-cmds; c.Action != "NEXT" {
+		t.Fatal(c)
+	}
+}
+
 func (p *phone) hello2Fail(t *testing.T) {
 	p.seq = 99
 	p.send(map[string]any{"type": "AUTH_HELLO", "pairingToken": p.token, "clientNonce": "x", "seq": p.seq, "pin": p.pin})

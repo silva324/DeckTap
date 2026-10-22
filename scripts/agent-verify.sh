@@ -15,7 +15,7 @@ if ! command -v node >/dev/null 2>&1; then
     echo "❌ Error: Node.js is required to lint JavaScript files."
     exit 1
 fi
-node -c internal/webui/static/app.js internal/webui/static/crypto.js internal/webui/static/sw.js
+node -c internal/webui/static/app.js internal/webui/static/crypto.js internal/webui/static/sw.js internal/webui/static/jsqr.js
 echo "    ✓ JavaScript syntax is clean."
 
 # 2. Check Go Formatting
