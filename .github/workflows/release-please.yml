@@ -39,10 +39,9 @@ jobs:
         uses: googleapis/release-please-action@v4
         id: release
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          prerelease: ${{ inputs.prerelease || false }}
-          prerelease-type: ${{ inputs.prerelease_type != 'none' && inputs.prerelease_type || '' }}
 
   publish-assets:
     name: Build & Publish Release Packages
