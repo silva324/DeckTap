@@ -5,7 +5,7 @@
 
 ---
 
-## 🌟 Current Baseline (Initial Release)
+## 🌟 Current Baseline (Implemented Capabilities)
 
 - [x] **Zero-Trust End-to-End Encryption (`SPEC-SEC-001`):** AES-256-GCM encryption with ephemeral key transmission via URI `#fragment` (RFC 3986).
 - [x] **Anti-Shoulder-Surfing PIN Verification:** 4-digit visual PIN shown exclusively on the presenter's screen with rate-limiting.
@@ -14,7 +14,11 @@
 - [x] **PWA "Add to Home Screen" & Mobile Optimizations:** Installable progressive web app, fixed non-scrolling bars, isolated speaker notes scrolling, and OLED dark mode.
 - [x] **In-App Camera QR Code Scanner:** Instant pairing directly inside the PWA with camera viewfinder, torch toggle, lens switcher, and manual link entry.
 - [x] **Resilient Session Resumption:** Deep backgrounding & memory eviction survival via `localStorage` + `sessionStorage` tokens with dead-connection heartbeat detection.
-- [x] **Virtual Laser Pointer & Spotlight Overlay:** On-screen macOS Cocoa overlay with 16:9 widescreen HUD and real-time touch tracking.
+- [x] **Virtual Laser Pointer & Spotlight Overlay:** On-screen macOS Cocoa overlay with 16:9 widescreen HUD, touch tracking, and instant recenter.
+- [x] **Motion / Gyroscope Tilt Pointer:** Device motion sensing (`DeviceOrientationEvent`) with one-tap calibration as an ergonomic alternative to touch dragging.
+- [x] **Multi-Display & External Projector Targeting:** Automatically runs presentations on external slide show displays while preserving presenter view on laptop screens.
+- [x] **Multi-Deck Management:** Live detection and remote switching across multiple open `.pptx` presentations directly from the mobile ready screen.
+- [x] **Smart Stage Cues & Pinch Zoom:** Automatic bracketed note tags (`[DEMO]`, `[PAUSE]`, `[CLICK]`, etc.) and smooth two-finger pinch-to-zoom (14px–48px) with persistent font preferences.
 - [x] **Automated Updates via GitHub Releases:** Background release checking, semver comparison, desktop update notification banner, and system tray menu item.
 - [x] **Native Presentation Drivers:** Native AppleScript for macOS PowerPoint, COM automation for Windows PowerPoint, and a synthetic zero-dependency Demo Engine (`-demo`).
 - [x] **Automated CI/CD:** Matrix continuous integration, automated semantic versioning via `release-please`, and cross-platform packaging (`.dmg`, `.zip`, `.exe`, `.tar.gz`).
@@ -22,19 +26,17 @@
 
 ---
 
-## 🚀 Horizon 1 — Multi-Screen & Visual Presentation (Ideas)
+## 🚀 Horizon 1 — Visual Presentation & Mirroring (Ideas)
 
-- **External Projector & Multi-Display Targeting:** Exploring options to render laser pointer and spotlight overlays simultaneously or selectively across external projectors, secondary monitors, and laptop screens.
 - **Slide Visuals / Screenshot Mirroring:** Ideas around displaying lightweight slide screenshots or previews directly on the phone's touch trackpad for more intuitive pointing.
-- **Multi-Deck Management:** Exploring remote switching when presenters have more than one `.pptx` presentation open simultaneously.
+- **Audience Q&A & Backchannel Notes:** Exploring presenter-side audience question queues and backchannel cues during live presentations.
 
 ---
 
 ## 🔮 Horizon 2 — Speaker Experience & Pacing (Ideas)
 
 - **Silent Haptic Pacing Timer:** Potential subtle palm vibration alerts (`navigator.vibrate`) at milestone intervals (e.g. half-time, 2-minute warning) to help speakers manage time without watching a clock.
-- **Visual Slide Grid & Search:** Quick-jump sheet to filter slides by title during audience Q&A sessions.
-- **Motion / Gyroscope Pointer:** Experiments using device motion sensors (`DeviceOrientationEvent`) as an alternative to touch dragging.
+- **Visual Slide Grid & Search:** Quick-jump sheet search and filter to locate slides by title during spontaneous audience Q&A sessions.
 
 ---
 

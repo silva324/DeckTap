@@ -16,78 +16,44 @@
 
 ---
 
-## ✨ Features at a Glance
+## ⚡ Quick Start — How to Use
 
-| Category | Capability | Description |
-| :--- | :--- | :--- |
-| 🛡️ **Zero-Trust Security** | **E2EE (AES-256-GCM)** | All slide notes, titles, and remote commands are encrypted end-to-end. Master keys are passed strictly out-of-band via URI `#fragment` ([RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.5)) and are never visible to servers or tunnels. |
-| 🔒 **Anti-Shoulder-Surfing** | **Visual PIN Verification** | A 4-digit PIN displayed exclusively on the presenter's laptop screen prevents audience members from capturing or hijacking pairing QR codes. Rate-limited after 5 attempts. |
-| 🌐 **Zero-Config Networking** | **Autonomous Edge Tunnel** | Automatically downloads, verifies, and deploys `cloudflared` for immediate worldwide access without port-forwarding or public IPs. Seamless local LAN fallback. |
-| 💻 **Native Host GUI** | **Embedded Window & Tray** | Native macOS Menu Bar and Windows System Tray app with a clean in-app status window displaying pairing QR codes, active peers, and instant reset controls. |
-| 📱 **Mobile PWA Experience** | **Smart Install & Scanner** | Installable Progressive Web App with an **in-app camera QR code scanner** (torch & lens switch), OLED dark mode, swipe gestures, and haptic feedback. |
-| 🔄 **Resilient Connection** | **Deep Background Resume** | Survives phone lock, multi-app switching, and memory eviction via encrypted session resumption and dead-connection heartbeat detection. |
-| 🎯 **Presenter Tools** | **Virtual Laser & Spotlight** | Full-screen macOS on-screen laser pointer and dimming spotlight overlay with 16:9 HUD, touch reticle, and slide mirroring. |
-| 📝 **Speaker Notes** | **Smart Cues & Pinch Zoom** | Distraction-free speaker notes with **two-finger pinch-to-zoom**, smart color-coded stage direction cues (`[DEMO]`, `[PAUSE]`, `[CLICK]`), slide index drawer, stopwatch, and blackout (`B` / `W`). |
-| 🚀 **Auto-Updates** | **GitHub Releases Integration**| Automatic background check against official GitHub releases with desktop update notification banners and 1-click update. |
-| 🤖 **Autonomous CI/CD** | **Automated Releases** | Full matrix continuous integration, automated SemVer changelog management via `release-please`, and cross-platform packaging (`.dmg`, `.zip`, `.exe`, `.tar.gz`). |
+Get presenting in less than 30 seconds:
 
-> 🗺️ **Looking for what's ahead?** Explore creative ideas, horizons, and exploratory concepts in [**ROADMAP.md**](ROADMAP.md).
+```
++--------------------+         +--------------------+         +--------------------+
+| 1. Launch Host     |         | 2. Scan & Pair     |         | 3. Enter PIN       |
+| Desktop app opens  | ------> | Phone camera or    | ------> | Type 4-digit PIN   | ------> Present!
+| pairing window     |         | Web App scans QR   |         | shown on computer  |
++--------------------+         +--------------------+         +--------------------+
+```
+
+1. **Launch DeckTap on your computer:** Open `DeckTap.app` on macOS or `DeckTap.exe` on Windows. The in-app desktop window displays a pairing QR code and a 4-digit visual PIN.
+2. **Pair with your phone:** Scan the QR code using your phone camera, or open the web app ([silva324.github.io/DeckTap](https://silva324.github.io/DeckTap)) and tap **Scan QR** with the built-in scanner.
+3. **Enter the 4-digit PIN:** Type the PIN shown on your computer screen to authorize your encrypted session.
+4. **Present with confidence:** Advance slides with taps or swipes, read speaker notes with color-coded stage direction badges, zoom text with pinch gestures, and point with the laser or spotlight!
+
+> 💡 **Tip:** Add the web app to your phone's home screen (**Share › Add to Home Screen** on iOS Safari, or **Install App** on Android Chrome) for an instant, full-screen offline-capable PWA experience.
 
 ---
 
-## 🔒 Cryptographic & Wire Protocol Specification (`SPEC-SEC-001`)
+## ✨ Features & Capabilities
 
-### 2.1 URI Format & Key Generation
-```text
-<TunnelOrLanBaseURL>/#<PairingToken>.<MasterKey>
-```
-- `MasterKey` ($K_{enc}$): 32 cryptographically secure bytes (`crypto/rand`), base64URL encoded.
-- `PairingToken` ($T_{pair}$): 16 random bytes, base64URL encoded.
-- `PinCode`: 4-digit numeric string (`0000`–`9999`).
-- `SessionID` ($S_{id}$): 16-byte cryptographically secure session token issued post-PIN verification.
+DeckTap is designed for speakers who need absolute privacy, reliability, and modern presentation controls:
 
-### 2.2 Wire Envelope
-Every WebSocket frame in both directions is encrypted with AES-256-GCM:
-```json
-{
-  "iv": "<12-byte IV base64url encoded>",
-  "data": "<ciphertext + 16-byte GCM authentication tag base64url encoded>"
-}
-```
+- 🛡️ **Zero-Trust End-to-End Encryption:** Slide notes, titles, and commands are encrypted with AES-256-GCM. Master keys are passed out-of-band via URI `#fragment` ([RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.5)) and are never visible to servers or tunnels.
+- 🔒 **Anti-Shoulder-Surfing PIN:** A 4-digit visual PIN shown strictly on the presenter's laptop screen prevents audience members from capturing or hijacking pairing QR codes.
+- 🌐 **Instant Pairing & Edge Tunnel:** Automatically downloads and runs a secure Cloudflare tunnel for immediate pairing anywhere without port forwarding, with seamless local LAN fallback.
+- 📱 **Progressive Web App & Camera Scanner:** Pure vanilla web app with an integrated camera scanner (torch/lens switch), OLED dark mode, haptic feedback, and deep background resume.
+- 🎯 **Virtual Laser Pointer & Spotlight:** On-screen presentation overlay with a 16:9 trackpad reticle, touch tracking, instant centering, and optional gyroscope motion tilt aiming.
+- 📝 **Smart Notes, Stage Cues & Pinch Zoom:** Color-coded stage badges (`[DEMO]`, `[PAUSE]`, `[CLICK]`, `[Q&A]`, `[WARN]`) and two-finger pinch-to-zoom (14px–48px) with persistent font preferences.
+- 🖥️ **Multi-Display & Multi-Deck Presenter:** Automatically targets slide show monitors while keeping presenter view on your laptop, with live multi-deck switching.
+- 📦 **Homebrew Cask & 1-Click Updates:** Install effortlessly with `brew install --cask silva324/tap/decktap` and receive automatic release notifications.
 
-### 2.3 Handshake & Reconnection Flow
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Presenter as Presenter Screen
-    actor Mobile as Mobile Browser / PWA
-    participant Host as Go Host Agent
-    participant PPT as PowerPoint Engine
-
-    Presenter->>Host: Launch DeckTap
-    Host->>Host: Generate MasterKey (K_enc), PairingToken (T_pair), 4-digit PIN
-    Host-->>Presenter: Display QR Code (#T_pair.K_enc) & Visual PIN in Host Window
-    Mobile->>Presenter: Scan QR Code (In-App Camera Scanner or System Camera)
-    Mobile->>Host: Connect WebSocket (/ws)
-    Presenter->>Mobile: User enters 4-digit PIN on phone pad
-    Mobile->>Host: Encrypted AUTH_HELLO {pairingToken, pin}
-    Host->>Host: Constant-time verify pairingToken & PIN
-    alt Verification Success
-        Host->>Host: Burn PairingToken, Issue SessionID (S_id)
-        PPT-->>Host: Poll Current Slide & Notes
-        Host-->>Mobile: Encrypted AUTH_OK {sessionId, state: {currentSlide, notes, total}}
-        Mobile-->>Presenter: Transition to Speaker Notes Screen
-    else Verification Failure
-        Host-->>Mobile: Encrypted AUTH_FAIL (Increment failure counter)
-        Mobile-->>Mobile: Haptic error shake, prompt retry
-    end
-
-    Note over Mobile,Host: Presentation Control Loop (AES-256-GCM E2EE)
-    Mobile->>Host: Encrypted Command {sid, action: "NEXT"}
-    Host->>PPT: Advance slide
-    PPT-->>Host: Status update
-    Host-->>Mobile: Encrypted STATE_UPDATE {currentSlide, notes, nextTitle}
-```
+> 📖 **Detailed Guides & Specifications:**  
+> - For gestures, stage cues, pinch zoom, and pointer controls $\to$ read the [**Presenter & User Guide**](docs/user-guide.md).  
+> - For cryptographic specifications, wire envelopes, and IPC architecture $\to$ read the [**Architecture & Security Model**](docs/architecture.md).  
+> - For future explorations and community ideas $\to$ explore the [**Product Roadmap**](ROADMAP.md).
 
 ---
 
@@ -121,9 +87,18 @@ Download the latest **Universal `.dmg`** from [Releases](https://github.com/silv
 > *(macOS only asks once on first launch; subsequent launches open with a normal double-click)*.
 
 ### Windows
-Download the latest **`DeckTap-*-windows-amd64.zip`** from [Releases](https://github.com/silva324/DeckTap/releases):
-1. Extract the `.zip` archive.
-2. Run `DeckTap.exe` (or install via `Setup-DeckTap.exe`). It runs silently in your System Tray with no distracting command window.
+
+Download the latest release package from [Releases](https://github.com/silva324/DeckTap/releases):
+- **Setup Installer (Recommended):** Download `DeckTap-*-Setup-Windows-x64.exe` and follow the setup wizard.
+- **Portable ZIP:** Download `DeckTap-*-windows-amd64.zip`, extract, and run `DeckTap.exe`. It runs silently in your System Tray with no distracting command window.
+
+### Linux
+
+Download `DeckTap-*-linux-amd64.tar.gz` or `DeckTap-*-linux-arm64.tar.gz` from [Releases](https://github.com/silva324/DeckTap/releases):
+```bash
+tar -xzf DeckTap-*-linux-amd64.tar.gz
+./DeckTap
+```
 
 ### Build from Source
 ```bash
