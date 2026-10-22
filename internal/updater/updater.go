@@ -68,6 +68,7 @@ type Service struct {
 	mu           sync.RWMutex
 	status       Status
 	lastChecked  time.Time
+	cachedETag   string
 	updateAsset  Asset
 	checksumsURL string
 }
@@ -132,6 +133,13 @@ func (s *Service) Status() Status {
 	return s.status
 }
 
+// InvalidateCache clears the cached ETag to force a full re-fetch on the next check.
+func (s *Service) InvalidateCache() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cachedETag = ""
+}
+
 // Check queries GitHub Releases for the latest version.
 func (s *Service) Check(ctx context.Context) (Status, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", s.owner, s.repo)
@@ -142,16 +150,34 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	req.Header.Set("User-Agent", fmt.Sprintf("DeckTap-Updater/%s", s.currentVersion))
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
+	s.mu.RLock()
+	etag := s.cachedETag
+	s.mu.RUnlock()
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return s.recordError(err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotModified {
+		s.mu.Lock()
+		s.lastChecked = time.Now()
+		s.status.Checked = true
+		st := s.status
+		s.mu.Unlock()
+		return st, nil
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Errorf("github api status: %d", resp.StatusCode)
 		return s.recordError(err)
 	}
+
+	newETag := resp.Header.Get("ETag")
 
 	var rel GitHubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
@@ -211,6 +237,9 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	}
 
 	s.status = st
+	if newETag != "" {
+		s.cachedETag = newETag
+	}
 	s.lastChecked = time.Now()
 	s.mu.Unlock()
 

@@ -3,6 +3,7 @@
 package tray
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"strings"
@@ -46,6 +47,7 @@ func setup(h *app.Host, openURL func(string)) {
 	systray.AddSeparator()
 	mUpdate := systray.AddMenuItem("✨ Update Available…", "Download the latest version of DeckTap")
 	mUpdate.Hide()
+	mCheckUpdate := systray.AddMenuItem("Check for updates…", "Check GitHub for a newer version of DeckTap")
 	mQR := systray.AddMenuItem("Show pairing QR…", "Open the pairing page on this computer")
 	mReset := systray.AddMenuItem("Reset pairing (new QR)", "Disconnect the phone and rotate all keys")
 	systray.AddSeparator()
@@ -118,6 +120,22 @@ func setup(h *app.Host, openURL func(string)) {
 				openURL(h.AdminURL())
 			case <-mUpdate.ClickedCh:
 				_ = h.ApplyUpdate()
+			case <-mCheckUpdate.ClickedCh:
+				mCheckUpdate.SetTitle("Checking for updates…")
+				go func() {
+					st, err := h.CheckUpdate(context.Background())
+					if err == nil && st.Available {
+						mCheckUpdate.SetTitle("✨ Update to " + st.LatestVer + "…")
+					} else if err == nil {
+						mCheckUpdate.SetTitle("✓ DeckTap is up to date")
+						time.Sleep(3 * time.Second)
+						mCheckUpdate.SetTitle("Check for updates…")
+					} else {
+						mCheckUpdate.SetTitle("Check failed")
+						time.Sleep(3 * time.Second)
+						mCheckUpdate.SetTitle("Check for updates…")
+					}
+				}()
 			case <-mReset.ClickedCh:
 				h.Reset()
 				openURL(h.AdminURL())
