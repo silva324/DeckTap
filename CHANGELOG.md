@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/silva324/DeckTap/compare/v0.11.0...v0.11.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **test:** wait for deck readiness before pairing in tests ([#53](https://github.com/silva324/DeckTap/issues/53)) ([235b6db](https://github.com/silva324/DeckTap/commit/235b6db97b965ac569f7a2c7f660f3b336cf815a))
+
 ## [0.11.0](https://github.com/silva324/DeckTap/compare/v0.10.1...v0.11.0) (2026-10-22)
 
 
