@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 echo "=========================================="
 echo "🤖 DeckTap Agent Verification & Lint Suite"
