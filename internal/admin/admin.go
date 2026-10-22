@@ -48,6 +48,7 @@ type Server struct {
 	mu           sync.Mutex
 	quit         func()
 	checkUpdate  func(context.Context) (updater.Status, error)
+	reloadDeck   func()
 }
 
 // SetQuitHandler registers the callback invoked when the user quits from the desktop interface.
@@ -55,6 +56,13 @@ func (s *Server) SetQuitHandler(fn func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.quit = fn
+}
+
+// SetReloadDeckHandler registers the callback invoked to reload the presentation notes and slides.
+func (s *Server) SetReloadDeckHandler(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadDeck = fn
 }
 
 // SetCheckUpdateHandler registers the callback invoked to check for updates on demand.
@@ -85,6 +93,7 @@ func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server
 	mux.HandleFunc("/"+s.secret+"/update/apply", s.doUpdateApply)
 	mux.HandleFunc("/"+s.secret+"/update/manual", s.doUpdateManual)
 	mux.HandleFunc("/"+s.secret+"/update/check", s.doUpdateCheck)
+	mux.HandleFunc("/"+s.secret+"/deck/reload", s.doReloadDeck)
 	mux.HandleFunc("/"+s.secret+"/quit", s.doQuit)
 	s.srv = &http.Server{Handler: s.guard(mux), ReadHeaderTimeout: 5 * time.Second}
 	go s.srv.Serve(ln)
@@ -194,6 +203,25 @@ func (s *Server) doUpdateCheck(w http.ResponseWriter, r *http.Request) {
 		"releaseURL":     st.ReleaseURL,
 		"releaseNotes":   st.ReleaseNotes,
 	})
+}
+
+func (s *Server) doReloadDeck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "http://"+s.ln.Addr().String() && o != "null" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	s.mu.Lock()
+	fn := s.reloadDeck
+	s.mu.Unlock()
+	if fn != nil {
+		fn()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 }
 
 func (s *Server) doQuit(w http.ResponseWriter, r *http.Request) {
@@ -776,6 +804,7 @@ body {
     <form method="post" action="/` + s.secret + `/reset" style="display:inline;">
       <button type="submit" class="btn" title="Create a fresh pairing code and disconnect previous devices">🔄 New Code</button>
     </form>
+    <button type="button" class="btn" id="btn-reload-deck" onclick="reloadDeckNow()" title="Reload slide titles and speaker notes from PowerPoint">↻ Reload Notes</button>
     <button type="button" class="btn" id="btn-copy-link">📋 Copy Link</button>
     <button type="button" class="btn btn-danger" id="btn-quit" title="Quit DeckTap completely">⏻ Quit</button>
   </div>
@@ -789,6 +818,8 @@ body {
 	b.WriteString(`</div>
   <div class="footer-links">
     <a href="https://github.com/silva324/DeckTap" target="_blank" rel="noopener" class="footer-link" id="footer-version-link">DeckTap ` + html.EscapeString(v.CurrentVersion) + ` · GitHub Repository</a>
+    <span class="footer-sep">·</span>
+    <button type="button" class="footer-btn" id="btn-footer-reload-deck" onclick="reloadDeckNow()">Reload notes</button>
     <span class="footer-sep">·</span>
     <button type="button" class="footer-btn" id="btn-check-update" onclick="checkUpdateNow()">Check for updates</button>
   </div>
@@ -1011,6 +1042,23 @@ document.getElementById("btn-copy-link").addEventListener("click", () => {
     });
   }
 });
+
+async function reloadDeckNow() {
+  const btns = [document.getElementById("btn-reload-deck"), document.getElementById("btn-footer-reload-deck")].filter(Boolean);
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    const res = await fetch("deck/reload", { method: "POST" });
+    if (res.ok) {
+      showUpdateToast("✓ Speaker notes & slides reloaded from PowerPoint");
+    } else {
+      showUpdateToast("Failed to reload deck", true);
+    }
+  } catch (e) {
+    showUpdateToast("Error communicating with DeckTap", true);
+  } finally {
+    btns.forEach(b => { b.disabled = false; });
+  }
+}
 
 async function checkUpdateNow() {
   const btn = document.getElementById("btn-check-update");

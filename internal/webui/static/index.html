@@ -120,7 +120,12 @@
           <span id="ready-name">—</span>
           <span class="chevron">▾</span>
         </button>
-        <div class="muted" id="ready-meta"></div>
+        <div class="ready-meta-row">
+          <div class="muted" id="ready-meta"></div>
+          <button type="button" class="reload-btn" id="btn-ready-reload" title="Reload notes & slides from PowerPoint" aria-label="Reload notes & slides">
+            <svg class="reload-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          </button>
+        </div>
       </div>
       <button class="btn primary big" id="btn-start">▶ Start Presentation</button>
       <div class="row">
@@ -153,7 +158,12 @@
         <div class="slide-title" id="slide-title"></div>
         <div class="next muted small" id="next-title"></div>
       </div>
-      <span class="lock" title="End-to-end encrypted"><svg class="lock-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z"/></svg></span>
+      <div class="preview-actions">
+        <button type="button" class="reload-btn" id="btn-reload-show" title="Reload notes & slides from PowerPoint" aria-label="Reload notes">
+          <svg class="reload-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+        <span class="lock" title="End-to-end encrypted"><svg class="lock-ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z"/></svg></span>
+      </div>
     </div>
     <article id="notes" class="notes" aria-live="polite"></article>
     <div id="zoom-hud" class="zoom-hud hidden" aria-live="polite">22px</div>
@@ -235,6 +245,7 @@
     <div class="sheet-panel">
       <div class="sheet-grip"></div>
       <div class="tools">
+        <button class="tool" id="t-reload">↻<span>Reload notes</span></button>
         <button class="tool" id="t-scan">📷<span>Pair / Scan QR</span></button>
         <button class="tool" id="t-install">📲<span>Install App</span></button>
         <button class="tool" id="t-black">◐<span>Black screen</span></button>

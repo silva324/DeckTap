@@ -119,6 +119,12 @@ code { background: var(--line); padding: 1px 5px; border-radius: 4px; }
 .preview .thumb { width: 34%; max-width: 220px; border-radius: 8px; border: 1px solid var(--line); background: #000; }
 .preview .next-thumb { width: 22%; opacity: .75; }
 .preview-text { flex: 1; min-width: 0; }
+.preview-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.reload-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: none; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; transition: color .15s, background .15s, transform .25s ease; -webkit-tap-highlight-color: transparent; }
+.reload-btn:hover { color: var(--text); background: var(--line); }
+.reload-btn:active { transform: rotate(180deg); }
+.reload-ic { width: 18px; height: 18px; }
+.ready-meta-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; }
 .slide-title { font-weight: 700; font-size: 17px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .next { margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.no-preview .preview { display: none; }

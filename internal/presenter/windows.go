@@ -150,6 +150,8 @@ func (w *Windows) Status(ctx context.Context) (Status, error) {
 		Total   int        `json:"total"`
 		Showing bool       `json:"showing"`
 		Idx     int        `json:"idx"`
+		Notes   string     `json:"notes"`
+		Title   string     `json:"title"`
 		Black   bool       `json:"black"`
 		Done    bool       `json:"done"`
 		Decks   []DeckInfo `json:"decks"`
@@ -158,7 +160,8 @@ func (w *Windows) Status(ctx context.Context) (Status, error) {
 		return Status{}, err
 	}
 	return Status{AppRunning: s.App, DeckName: s.Name, DeckPath: s.Path, Total: s.Total,
-		Presenting: s.Showing, Slide: s.Idx, Blackout: s.Black, Ended: s.Done, Decks: s.Decks}, nil
+		Presenting: s.Showing, Slide: s.Idx, SlideTitle: CleanText(s.Title), SlideNotes: CleanText(s.Notes),
+		Blackout: s.Black, Ended: s.Done, Decks: s.Decks}, nil
 }
 
 func (w *Windows) AppSlides(ctx context.Context) ([]pptx.Slide, error) {

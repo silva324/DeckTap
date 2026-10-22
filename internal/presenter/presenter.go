@@ -26,7 +26,9 @@ type Status struct {
 	DeckPath   string // local path or URL (OneDrive/SharePoint); "" if unknown
 	Total      int
 	Presenting bool
-	Slide      int // 1-based; 0 = unknown
+	Slide      int    // 1-based; 0 = unknown
+	SlideTitle string // live title of current slide from PowerPoint
+	SlideNotes string // live speaker notes of current slide from PowerPoint
 	Blackout   bool
 	Ended      bool // "end of slide show" screen
 	Decks      []DeckInfo

@@ -47,6 +47,7 @@ func setup(h *app.Host, openURL func(string)) {
 	systray.AddSeparator()
 	mUpdate := systray.AddMenuItem("✨ Update Available…", "Download the latest version of DeckTap")
 	mUpdate.Hide()
+	mReloadDeck := systray.AddMenuItem("Reload notes & slides", "Re-read presentation notes and slides from PowerPoint")
 	mCheckUpdate := systray.AddMenuItem("Check for updates…", "Check GitHub for a newer version of DeckTap")
 	mQR := systray.AddMenuItem("Show pairing QR…", "Open the pairing page on this computer")
 	mReset := systray.AddMenuItem("Reset pairing (new QR)", "Disconnect the phone and rotate all keys")
@@ -120,6 +121,13 @@ func setup(h *app.Host, openURL func(string)) {
 				openURL(h.AdminURL())
 			case <-mUpdate.ClickedCh:
 				_ = h.ApplyUpdate()
+			case <-mReloadDeck.ClickedCh:
+				mReloadDeck.SetTitle("Reloading notes…")
+				h.ReloadDeck()
+				go func() {
+					time.Sleep(1 * time.Second)
+					mReloadDeck.SetTitle("Reload notes & slides")
+				}()
 			case <-mCheckUpdate.ClickedCh:
 				mCheckUpdate.SetTitle("Checking for updates…")
 				go func() {

@@ -996,6 +996,18 @@
   if (btnSpot) btnSpot.addEventListener("click", () => startPointer("spotlight"));
   $("t-black").addEventListener("click", () => { command("BLACK"); closeSheet(); });
   $("t-end").addEventListener("click", () => { if (confirm("End the slide show?")) { command("END_SHOW"); closeSheet(); } });
+
+  function reloadNotes() {
+    command("REFRESH");
+    toast("Reloading notes & slides…");
+    buzz();
+  }
+  const tReload = $("t-reload");
+  if (tReload) tReload.addEventListener("click", () => { reloadNotes(); closeSheet(); });
+  const btnReloadShow = $("btn-reload-show");
+  if (btnReloadShow) btnReloadShow.addEventListener("click", reloadNotes);
+  const btnReadyReload = $("btn-ready-reload");
+  if (btnReadyReload) btnReadyReload.addEventListener("click", reloadNotes);
   $("t-smaller").addEventListener("click", () => { fontSize = Math.max(14, fontSize - 2); prefs.set("font", fontSize); applyPrefs(); showZoomHud(fontSize); });
   $("t-bigger").addEventListener("click", () => { fontSize = Math.min(48, fontSize + 2); prefs.set("font", fontSize); applyPrefs(); showZoomHud(fontSize); });
   $("t-theme").addEventListener("click", () => { theme = { auto: "light", light: "dark", dark: "auto" }[theme]; prefs.set("theme", theme); applyPrefs(); });
