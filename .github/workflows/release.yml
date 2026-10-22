@@ -59,6 +59,8 @@ jobs:
     name: Build macOS Universal Assets
     needs: resolve-tag
     runs-on: macos-latest
+    permissions:
+      contents: write
     env:
       VERSION: ${{ needs.resolve-tag.outputs.tag_name }}
     steps:
@@ -96,6 +98,8 @@ jobs:
     name: Build Windows Assets
     needs: resolve-tag
     runs-on: windows-latest
+    permissions:
+      contents: write
     env:
       VERSION: ${{ needs.resolve-tag.outputs.tag_name }}
     steps:
@@ -143,6 +147,8 @@ jobs:
     name: Build Linux Assets
     needs: resolve-tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       VERSION: ${{ needs.resolve-tag.outputs.tag_name }}
     steps:
@@ -180,6 +186,8 @@ jobs:
     name: Generate & Publish Checksums
     needs: [resolve-tag, build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
