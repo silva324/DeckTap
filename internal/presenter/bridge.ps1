@@ -38,7 +38,26 @@ function Get-Status {
         $r.done = ($st -eq 5)
         if ($r.done) { $r.idx = $r.total }
         else { try { $r.idx = $v.Slide.SlideIndex } catch { $r.idx = $v.CurrentShowPosition } }
+    } else {
+        try {
+            if ($app.ActiveWindow -and $app.ActiveWindow.Selection -and $app.ActiveWindow.Selection.SlideRange) {
+                $r.idx = $app.ActiveWindow.Selection.SlideRange.Item(1).SlideIndex
+            }
+        } catch {}
     }
+    $notes = ""
+    $title = ""
+    if ($p -and $r.idx -gt 0 -and $r.idx -le $r.total) {
+        try {
+            $s = $p.Slides.Item($r.idx)
+            try { if ($s.Shapes.HasTitle) { $title = $s.Shapes.Title.TextFrame.TextRange.Text.Trim() } } catch {}
+            try { $notes = $s.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text } catch {
+                try { $notes = $s.NotesPage.Shapes.Item(2).TextFrame.TextRange.Text } catch {}
+            }
+        } catch {}
+    }
+    $r.notes = $notes
+    $r.title = $title
     $decks = @()
     if ($app -and $app.Presentations) {
         try {

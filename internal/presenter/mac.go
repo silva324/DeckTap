@@ -76,8 +76,15 @@ tell application "Microsoft PowerPoint"
 	set total to 0
 	set showing to "0"
 	set idx to 0
+	set curTitle to ""
+	set curNotes to ""
 	try
 		set p to active presentation
+		if (count of slide show windows) > 0 then
+			try
+				set p to presentation of slide show window 1
+			end try
+		end if
 		set pname to name of p
 		set ppath to full name of p
 		set total to count of slides of p
@@ -86,8 +93,38 @@ tell application "Microsoft PowerPoint"
 		if (count of slide show windows) > 0 then
 			set showing to "1"
 			set idx to slide index of slide of slide show view of slide show window 1
+		else
+			try
+				set idx to slide index of slide 1 of slide range of selection of document window 1
+			end try
 		end if
 	end try
+	if idx > 0 and total > 0 and idx <= total then
+		try
+			set curSlide to slide idx of p
+			try
+				set curTitle to (content of text range of text frame of place holder 1 of curSlide) as string
+			end try
+			try
+				set curNotes to (content of text range of text frame of place holder 2 of notes page of curSlide) as string
+			end try
+			if curNotes is "" or curNotes is "missing value" then
+				try
+					repeat with shp in shapes of notes page of curSlide
+						if has text frame of shp then
+							set candidate to content of text range of text frame of shp
+							if candidate is not missing value and candidate is not "" and candidate is not "missing value" and candidate is not (idx as string) then
+								set curNotes to candidate as string
+								exit repeat
+							end if
+						end if
+					end repeat
+				end try
+			end if
+		end try
+	end if
+	if curTitle is "missing value" then set curTitle to ""
+	if curNotes is "missing value" then set curNotes to ""
 	set deckStr to ""
 	try
 		repeat with i from 1 to count of presentations
@@ -104,7 +141,7 @@ if showing is "1" then
 		set sstate to run script "tell application \"Microsoft PowerPoint\" to return (slide state of slide show view of slide show window 1) as string"
 	end try
 end if
-return "1" & fs & pname & fs & ppath & fs & total & fs & showing & fs & idx & fs & sstate & fs & deckStr
+return "1" & fs & pname & fs & ppath & fs & total & fs & showing & fs & idx & fs & sstate & fs & deckStr & fs & curTitle & fs & curNotes
 `
 
 func (m *Mac) Status(ctx context.Context) (Status, error) {
@@ -128,6 +165,13 @@ func (m *Mac) Status(ctx context.Context) (Status, error) {
 	st.Ended = strings.Contains(state, "done")
 	if st.Ended && st.Slide == 0 {
 		st.Slide = st.Total
+	}
+
+	if len(f) >= 9 {
+		st.SlideTitle = CleanText(f[8])
+	}
+	if len(f) >= 10 {
+		st.SlideNotes = CleanText(f[9])
 	}
 
 	if len(f) >= 8 && f[7] != "" {

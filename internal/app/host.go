@@ -223,6 +223,7 @@ func (h *Host) Start(parent context.Context) error {
 	}
 	a.SetQuitHandler(h.Quit)
 	a.SetCheckUpdateHandler(h.CheckUpdate)
+	a.SetReloadDeckHandler(h.ReloadDeck)
 	h.admin = a
 	h.updater.StartBackgroundCheck(h.ctx, 1*time.Hour)
 	go h.Sync.Run(h.ctx)
@@ -499,6 +500,13 @@ func (h *Host) CheckUpdate(ctx context.Context) (updater.Status, error) {
 
 // Updater returns the updater service instance.
 func (h *Host) Updater() *updater.Service { return h.updater }
+
+// ReloadDeck forces an immediate refresh of slide titles and notes from PowerPoint.
+func (h *Host) ReloadDeck() {
+	if h.Sync != nil {
+		h.Sync.ReloadDeck()
+	}
+}
 
 // Quit gracefully terminates DeckTap and exits the process.
 func (h *Host) Quit() {

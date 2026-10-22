@@ -94,4 +94,14 @@ func TestAdminPageGuarded(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Fatal("expected quit handler to be called")
 	}
+
+	// Test deck/reload endpoint
+	reloaded := false
+	s2.SetReloadDeckHandler(func() {
+		reloaded = true
+	})
+	resReload, err := http.Post(s2.URL()+"deck/reload", "application/json", nil)
+	if err != nil || resReload.StatusCode != 200 || !reloaded {
+		t.Fatalf("deck/reload endpoint failed: reloaded=%v, err=%v", reloaded, err)
+	}
 }

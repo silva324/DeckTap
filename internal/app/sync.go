@@ -93,6 +93,18 @@ func (s *Sync) poll(ctx context.Context) {
 		s.lastErr = "" // status errors clear themselves; command errors ("!") clear on next command
 	}
 	s.st = st
+	idx := st.Slide
+	if idx == 0 && st.Total > 0 {
+		idx = 1
+	}
+	if cur := s.slideLocked(idx); cur != nil {
+		if st.SlideNotes != "" {
+			cur.Notes = st.SlideNotes
+		}
+		if st.SlideTitle != "" {
+			cur.Title = st.SlideTitle
+		}
+	}
 	state := s.stateLocked()
 	deckMsg := s.deckMsgLocked()
 	stateJSON, _ := json.Marshal(state)
@@ -114,6 +126,15 @@ func (s *Sync) poll(ctx context.Context) {
 	if (sendState || sendDeck) && onChange != nil {
 		onChange()
 	}
+}
+
+// ReloadDeck forces an immediate refresh of slide titles and notes from PowerPoint.
+func (s *Sync) ReloadDeck() {
+	s.mu.Lock()
+	s.deckKey = ""
+	s.deckChecked = time.Time{}
+	s.mu.Unlock()
+	s.kick()
 }
 
 // refreshDeck (re)loads titles and notes when the deck changes or the file is saved.
@@ -139,6 +160,7 @@ func (s *Sync) refreshDeck(ctx context.Context, st presenter.Status) {
 	s.mu.Lock()
 	s.deckChecked = time.Now()
 	same := key == s.deckKey
+	hadKey := s.deckKey != ""
 	s.mu.Unlock()
 	if same {
 		return
@@ -146,16 +168,20 @@ func (s *Sync) refreshDeck(ctx context.Context, st presenter.Status) {
 
 	var slides []pptx.Slide
 	var err error
-	if local {
+	if local && hadKey {
 		slides, err = pptx.Read(st.DeckPath)
-		if err == nil && st.Total > 0 && len(slides) != st.Total {
-			s.log.Info("file differs from the open deck (unsaved changes?) - reading notes from PowerPoint")
+		if err != nil || (st.Total > 0 && len(slides) != st.Total) {
+			s.log.Info("file differs from the open deck or read error - reading notes from PowerPoint", "err", err)
 			if appSlides, err2 := s.ctl.AppSlides(ctx); err2 == nil && len(appSlides) > 0 {
 				slides = appSlides
+				err = nil
 			}
 		}
 	} else {
 		slides, err = s.ctl.AppSlides(ctx)
+		if (err != nil || len(slides) == 0) && local {
+			slides, err = pptx.Read(st.DeckPath)
+		}
 	}
 	if err != nil {
 		s.log.Warn("could not read speaker notes", "deck", st.DeckName, "err", err)
@@ -211,6 +237,12 @@ func (s *Sync) stateLocked() map[string]any {
 	}
 	if cur := s.slideLocked(idx); cur != nil {
 		m["title"], m["notes"], m["hidden"] = cur.Title, cur.Notes, cur.Hidden
+	}
+	if st.SlideTitle != "" {
+		m["title"] = st.SlideTitle
+	}
+	if st.SlideNotes != "" {
+		m["notes"] = st.SlideNotes
 	}
 	if idx < total {
 		m["nextSlide"] = idx + 1
@@ -277,6 +309,9 @@ func (s *Sync) Handle(ctx context.Context, cmd session.Command) {
 		err = s.ctl.ToggleBlack(cctx)
 	case "SWITCH_DECK":
 		err = s.ctl.SwitchDeck(cctx, cmd.Deck, true)
+	case "REFRESH":
+		s.ReloadDeck()
+		return
 	default:
 		s.log.Warn("unknown action", "action", cmd.Action)
 		return

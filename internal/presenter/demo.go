@@ -17,6 +17,7 @@ type Demo struct {
 	showing bool
 	black   bool
 	ended   bool
+	slides  []pptx.Slide
 }
 
 func NewDemo(path string) (*Demo, error) {
@@ -25,7 +26,7 @@ func NewDemo(path string) (*Demo, error) {
 		return nil, err
 	}
 	abs, _ := filepath.Abs(path)
-	return &Demo{path: abs, total: len(slides), idx: 1}, nil
+	return &Demo{path: abs, total: len(slides), idx: 1, slides: slides}, nil
 }
 
 func (d *Demo) Name() string { return "demo" }
@@ -35,9 +36,15 @@ func (d *Demo) Status(context.Context) (Status, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	deckName := filepath.Base(d.path)
+	var title, notes string
+	if d.idx > 0 && d.idx <= len(d.slides) {
+		title = d.slides[d.idx-1].Title
+		notes = d.slides[d.idx-1].Notes
+	}
 	return Status{
 		AppRunning: true, DeckName: deckName, DeckPath: d.path, Total: d.total,
-		Presenting: d.showing, Slide: d.idx, Blackout: d.black, Ended: d.ended,
+		Presenting: d.showing, Slide: d.idx, SlideTitle: title, SlideNotes: notes,
+		Blackout: d.black, Ended: d.ended,
 		Decks: []DeckInfo{
 			{Name: deckName, Path: d.path, Total: d.total, Active: true, Showing: d.showing},
 		},

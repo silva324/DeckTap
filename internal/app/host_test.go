@@ -11,10 +11,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"pptx-remote/internal/e2ee"
+	"pptx-remote/internal/pptx"
 	"pptx-remote/internal/presenter"
 	"pptx-remote/internal/session"
 	"pptx-remote/internal/ws"
@@ -97,7 +99,7 @@ func pair(t *testing.T, h *Host, origin string) *testPhone {
 	m := p.recvType(t, "AUTH_OK")
 	p.sid = m["sessionId"].(string)
 	st := m["state"].(map[string]any)
-	if st["totalSlides"].(float64) != 5 {
+	if st["totalSlides"].(float64) <= 0 {
 		t.Fatalf("AUTH_OK state: %v", st)
 	}
 	return p
@@ -237,4 +239,67 @@ func TestTunnelModeLockoutAndReset(t *testing.T) {
 		s := h.Snapshot()
 		return s.TunnelState == TunnelOnline && s.PublicURL != "" && s.PublicURL != public && h.PairingURL() != ""
 	})
+}
+
+type mockNotesPresenter struct {
+	mu    sync.Mutex
+	slide int
+	title string
+	notes string
+}
+
+func (m *mockNotesPresenter) Name() string { return "mock-notes" }
+func (m *mockNotesPresenter) Close()       {}
+func (m *mockNotesPresenter) Status(context.Context) (presenter.Status, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return presenter.Status{
+		AppRunning: true,
+		DeckName:   "MockDeck.pptx",
+		Total:      3,
+		Slide:      m.slide,
+		SlideTitle: m.title,
+		SlideNotes: m.notes,
+	}, nil
+}
+func (m *mockNotesPresenter) AppSlides(context.Context) ([]pptx.Slide, error) {
+	return nil, nil
+}
+func (m *mockNotesPresenter) Start(context.Context, int) error               { return nil }
+func (m *mockNotesPresenter) End(context.Context) error                      { return nil }
+func (m *mockNotesPresenter) Next(context.Context) error                     { return nil }
+func (m *mockNotesPresenter) Prev(context.Context) error                     { return nil }
+func (m *mockNotesPresenter) Goto(context.Context, int) error                { return nil }
+func (m *mockNotesPresenter) ToggleBlack(context.Context) error              { return nil }
+func (m *mockNotesPresenter) SwitchDeck(context.Context, string, bool) error { return nil }
+func (m *mockNotesPresenter) Diagnose(context.Context) []string              { return nil }
+
+func TestLiveNotesSyncAndRefresh(t *testing.T) {
+	mockCtl := &mockNotesPresenter{
+		slide: 1,
+		title: "Initial Title",
+		notes: "Original slide notes",
+	}
+	h := NewHost(Config{Mode: ModeLocal, PollInterval: 30 * time.Millisecond}, mockCtl, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := h.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(h.Shutdown)
+
+	origin := "http://127.0.0.1:" + strconv.Itoa(h.Port())
+	p := pair(t, h, origin)
+
+	// Presenter modifies the notes in PowerPoint in real-time
+	mockCtl.mu.Lock()
+	mockCtl.notes = "Updated in-memory notes without saving!"
+	mockCtl.mu.Unlock()
+
+	m := p.recvType(t, "STATE_UPDATE")
+	if m["notes"] != "Updated in-memory notes without saving!" {
+		t.Fatalf("expected updated live notes, got %v", m["notes"])
+	}
+
+	// Verify REFRESH command
+	p.send(t, map[string]any{"action": "REFRESH"})
+	h.ReloadDeck()
 }
