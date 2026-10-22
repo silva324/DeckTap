@@ -849,7 +849,7 @@ body {
 	if v.Mode != "lan" {
 		b.WriteString(" active")
 	}
-	b.WriteString(`" id="tab-tunnel" onclick="switchMode('tunnel')" title="Connect over the Internet (Cloudflare / ngrok)">🌐 Cloud Tunnel</button>
+	b.WriteString(`" id="tab-tunnel" onclick="switchMode('tunnel')" title="Connect over the Internet (Cloudflare)">🌐 Cloud Tunnel</button>
     <button type="button" class="mode-tab`)
 	if v.Mode == "lan" {
 		b.WriteString(" active")

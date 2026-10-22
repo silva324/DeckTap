@@ -304,55 +304,6 @@ func TestLiveNotesSyncAndRefresh(t *testing.T) {
 	h.ReloadDeck()
 }
 
-const fakeCloudflared7844Fail = `#!/bin/sh
-echo "ERR DialContext error: dial tcp 198.41.200.63:7844: i/o timeout" >&2
-exit 1
-`
-
-const fakeNgrokFallback = `#!/bin/sh
-echo '{"lvl":"info","msg":"started tunnel","url":"https://corporate-bypass.ngrok-free.app"}'
-exec sleep 60
-`
-
-func TestNgrokPort443Fallback(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("shell script fake")
-	}
-	cfBin := filepath.Join(t.TempDir(), "cloudflared")
-	os.WriteFile(cfBin, []byte(fakeCloudflared7844Fail), 0o755)
-
-	ngrokBin := filepath.Join(t.TempDir(), "ngrok")
-	os.WriteFile(ngrokBin, []byte(fakeNgrokFallback), 0o755)
-
-	ctl, err := presenter.NewDemo("../pptx/testdata/demo.pptx")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := Config{
-		Mode:           ModeTunnel,
-		TunnelProvider: TunnelProviderAuto,
-		Cloudflared:    cfBin,
-		Ngrok:          ngrokBin,
-		PollInterval:   50 * time.Millisecond,
-	}
-
-	h := NewHost(cfg, ctl, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	if err := h.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(h.Shutdown)
-
-	waitFor(t, "ngrok fallback online", func() bool {
-		s := h.Snapshot()
-		return s.TunnelState == TunnelOnline && s.PublicURL == "https://corporate-bypass.ngrok-free.app" && s.TunnelProvider == "ngrok"
-	})
-
-	if !strings.Contains(h.PairingURL(), "corporate-bypass.ngrok-free.app") {
-		t.Fatalf("pairing URL must contain ngrok host, got %q", h.PairingURL())
-	}
-}
-
 func TestLANMode(t *testing.T) {
 	h := newTestHost(t, ModeLAN)
 	snap := h.Snapshot()

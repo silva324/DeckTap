@@ -45,7 +45,7 @@ func setup(h *app.Host, openURL func(string)) {
 	mShow := systray.AddMenuItem("PowerPoint: —", "")
 	mShow.Disable()
 	systray.AddSeparator()
-	mModeTunnel := systray.AddMenuItemCheckbox("🌐 Cloud Tunnel (Internet)", "Connect over Internet tunnel (Cloudflare/ngrok)", h.Snapshot().Mode != app.ModeLAN)
+	mModeTunnel := systray.AddMenuItemCheckbox("🌐 Cloud Tunnel (Internet)", "Connect over Internet tunnel (Cloudflare)", h.Snapshot().Mode != app.ModeLAN)
 	mModeLAN := systray.AddMenuItemCheckbox("📶 Local Wi-Fi (Offline / Direct)", "Direct connection over local Wi-Fi or Hotspot", h.Snapshot().Mode == app.ModeLAN)
 	systray.AddSeparator()
 	mUpdate := systray.AddMenuItem("✨ Update Available…", "Download the latest version of DeckTap")

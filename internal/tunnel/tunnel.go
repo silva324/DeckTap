@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Tunnel represents one active tunnel process (Cloudflare, ngrok, etc.).
+// Tunnel represents one active tunnel process (Cloudflare quick tunnel).
 type Tunnel struct {
 	URL      string
 	Host     string
