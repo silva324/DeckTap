@@ -15,7 +15,7 @@ mkdir -p "${DIST_DIR}/bin"
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -buildvcs=false \
     -ldflags "-s -w -H=windowsgui -X main.version=${VERSION}" \
     -o "${DIST_DIR}/bin/DeckTap.exe" \
-    ./cmd/pptx-remote
+    ./cmd/decktap
 
 # 2. Package ZIP
 echo "==> Packaging ZIP: ${ZIP_NAME}..."

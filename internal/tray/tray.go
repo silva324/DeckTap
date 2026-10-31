@@ -11,7 +11,7 @@ import (
 
 	"fyne.io/systray"
 
-	"pptx-remote/internal/app"
+	"github.com/silva324/DeckTap/internal/app"
 )
 
 // Supported reports whether this build has a tray.

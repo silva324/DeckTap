@@ -15,14 +15,14 @@ echo "==> Compiling linux/amd64..."
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false \
     -ldflags "-s -w -X main.version=${VERSION}" \
     -o "${DIST_DIR}/bin/decktap-linux-amd64" \
-    ./cmd/pptx-remote
+    ./cmd/decktap
 
 # 2. linux/arm64
 echo "==> Compiling linux/arm64..."
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -buildvcs=false \
     -ldflags "-s -w -X main.version=${VERSION}" \
     -o "${DIST_DIR}/bin/decktap-linux-arm64" \
-    ./cmd/pptx-remote
+    ./cmd/decktap
 
 # 3. Create Tarballs
 echo "==> Packaging Linux Tarballs..."

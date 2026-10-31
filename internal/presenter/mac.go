@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"pptx-remote/internal/pptx"
+	"github.com/silva324/DeckTap/internal/pptx"
 )
 
 // Mac drives Microsoft PowerPoint for Mac through AppleScript (osascript).

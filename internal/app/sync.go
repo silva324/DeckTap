@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"pptx-remote/internal/pptx"
-	"pptx-remote/internal/presenter"
-	"pptx-remote/internal/session"
+	"github.com/silva324/DeckTap/internal/pptx"
+	"github.com/silva324/DeckTap/internal/presenter"
+	"github.com/silva324/DeckTap/internal/session"
 )
 
 // Sync keeps the phone in step with the presentation app: it polls the controller,

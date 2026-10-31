@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"pptx-remote/internal/procutil"
+	"github.com/silva324/DeckTap/internal/procutil"
 )
 
 var (

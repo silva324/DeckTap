@@ -19,13 +19,13 @@ import (
 	"syscall"
 	"time"
 
-	"pptx-remote/internal/app"
-	"pptx-remote/internal/nativewin"
-	"pptx-remote/internal/presenter"
-	"pptx-remote/internal/qr"
-	"pptx-remote/internal/tray"
-	"pptx-remote/internal/tunnel"
-	"pptx-remote/internal/updater"
+	"github.com/silva324/DeckTap/internal/app"
+	"github.com/silva324/DeckTap/internal/nativewin"
+	"github.com/silva324/DeckTap/internal/presenter"
+	"github.com/silva324/DeckTap/internal/qr"
+	"github.com/silva324/DeckTap/internal/tray"
+	"github.com/silva324/DeckTap/internal/tunnel"
+	"github.com/silva324/DeckTap/internal/updater"
 )
 
 var version = "0.0.1"

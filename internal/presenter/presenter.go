@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	"pptx-remote/internal/pptx"
+	"github.com/silva324/DeckTap/internal/pptx"
 )
 
 // DeckInfo represents an open presentation deck.

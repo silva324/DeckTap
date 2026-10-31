@@ -61,16 +61,16 @@ cd DeckTap
 go test ./...
 
 # Build the binary
-go build -o bin/pptx-remote ./cmd/pptx-remote
+go build -o bin/decktap ./cmd/decktap
 
 # Run diagnostic doctor
-./bin/pptx-remote doctor
+./bin/decktap doctor
 
 # Run with demo deck (offline, no PowerPoint needed)
-./bin/pptx-remote -mode local -demo internal/pptx/testdata/demo.pptx
+./bin/decktap -mode local -demo internal/pptx/testdata/demo.pptx
 
 # Run in live mode with tunnel
-./bin/pptx-remote
+./bin/decktap
 ```
 
 ---

@@ -41,7 +41,7 @@ echo "    ✓ All Go tests passed."
 
 # 5. Verify Binary Compilation
 echo "==> 5. Verifying Go binary build..."
-go build -buildvcs=false -o /dev/null ./cmd/pptx-remote
+go build -buildvcs=false -o /dev/null ./cmd/decktap
 echo "    ✓ Binary builds cleanly."
 
 # 6. Git Hygiene Check

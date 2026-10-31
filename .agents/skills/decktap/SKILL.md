@@ -10,16 +10,16 @@ This skill guides AI agents working on **DeckTap**, a Zero-Trust E2EE presentati
 ## 1. Quick Commands
 ```bash
 # Build binary
-go build -o bin/pptx-remote ./cmd/pptx-remote
+go build -o bin/decktap ./cmd/decktap
 
 # Run all unit and integration tests
 go test -v ./...
 
 # Run diagnostic doctor (verifies cloudflared, PowerPoint permissions, notes extraction)
-./bin/pptx-remote doctor
+./bin/decktap doctor
 
 # Run with demo deck (offline mode, no PowerPoint required)
-./bin/pptx-remote -mode local -no-browser -demo internal/pptx/testdata/demo.pptx
+./bin/decktap -mode local -no-browser -demo internal/pptx/testdata/demo.pptx
 
 # Check JavaScript syntax
 node -c internal/webui/static/app.js internal/webui/static/crypto.js

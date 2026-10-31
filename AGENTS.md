@@ -134,7 +134,7 @@ The verification suite automatically runs all gates:
 2. **Go Formatting:** `gofmt -l .` (ensures canonical formatting)
 3. **Go Vet:** `go vet ./...` (catches structural and static analysis bugs)
 4. **Go Tests:** `go test ./...` (runs unit and integration tests)
-5. **Binary Compilation:** `go build -buildvcs=false -o /dev/null ./cmd/pptx-remote`
+5. **Binary Compilation:** `go build -buildvcs=false -o /dev/null ./cmd/decktap`
 6. **Git Hygiene:** Ensures no `.DS_Store`, `.exe`, or release archives slip into git.
 
 To configure local git hooks automatically:
@@ -148,7 +148,7 @@ make setup-hooks
 
 | Directory | Purpose |
 | :--- | :--- |
-| `cmd/pptx-remote/` | Main application entry point and CLI flags |
+| `cmd/decktap/` | Main application entry point and CLI flags |
 | `internal/app/` | Host orchestrator, background synchronization, and state management |
 | `internal/e2ee/` | AES-256-GCM encryption/decryption routines |
 | `internal/session/` | Encrypted session state machine, PIN verification, and reconnection |

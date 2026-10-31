@@ -33,8 +33,8 @@ import (
 	"sync"
 	"time"
 
-	"pptx-remote/internal/e2ee"
-	"pptx-remote/internal/ws"
+	"github.com/silva324/DeckTap/internal/e2ee"
+	"github.com/silva324/DeckTap/internal/ws"
 )
 
 type State string
