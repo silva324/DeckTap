@@ -1,3 +1,7 @@
+@font-face { font-family: "Outfit"; font-style: normal; font-weight: 300 500; font-display: swap;
+  src: url("fonts/outfit-latin.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/dm-mono-400-latin.woff2") format("woff2"); }
 /* Volaro design tokens (design-system/tokens.json). DeckTap's signature accent is
    Dawn: --accent fills the one main action per view; --accent-text is Dawn as text. */
 :root {

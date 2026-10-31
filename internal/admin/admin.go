@@ -108,6 +108,7 @@ func Start(view func() View, reset func(), applyUpdate ...func() error) (*Server
 	mux.HandleFunc("/"+s.secret+"/update/check", s.doUpdateCheck)
 	mux.HandleFunc("/"+s.secret+"/deck/reload", s.doReloadDeck)
 	mux.HandleFunc("/"+s.secret+"/quit", s.doQuit)
+	mux.HandleFunc("/"+s.secret+"/fonts/", s.font)
 	s.srv = &http.Server{Handler: s.guard(mux), ReadHeaderTimeout: 5 * time.Second}
 	go s.srv.Serve(ln)
 	return s, nil
@@ -129,7 +130,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		h.Set("Cache-Control", "no-store")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; form-action 'self'; frame-ancestors 'none'")
+		h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -318,6 +319,18 @@ func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// font serves the embedded web fonts, so the page loads Volaro's typefaces without a CDN.
+func (s *Server) font(w http.ResponseWriter, r *http.Request) {
+	b, ok := webui.Font(strings.TrimPrefix(r.URL.Path, "/"+s.secret+"/fonts/"))
+	if !ok || r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "font/woff2")
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	w.Write(b)
+}
+
 // iconSVGBase64 is the shared app icon, inlined as a data URI (the page CSP allows data: images).
 var iconSVGBase64 = base64.StdEncoding.EncodeToString(webui.IconSVG())
 
@@ -376,6 +389,8 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 <meta name="color-scheme" content="light dark">
 <title>DeckTap</title>
 <style>
+@font-face { font-family: "Outfit"; font-style: normal; font-weight: 300 500; font-display: swap; src: url("fonts/outfit-latin.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/dm-mono-400-latin.woff2") format("woff2"); }
 /* Volaro design tokens (design-system/tokens.json); Dawn is DeckTap's accent. */
 :root {
   --bg: #f7f9fc; --panel: #ffffff; --sunken: #eef2f8; --line: #dfe6f1; --line-strong: #7d8da4;

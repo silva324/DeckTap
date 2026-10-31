@@ -8,7 +8,9 @@ const ASSETS = [
   "app.js",
   "crypto.js",
   "icon.svg",
-  "manifest.webmanifest"
+  "manifest.webmanifest",
+  "fonts/outfit-latin.woff2",
+  "fonts/dm-mono-400-latin.woff2"
 ];
 
 self.addEventListener("install", (e) => {
