@@ -183,12 +183,23 @@ jobs:
           retention-days: 1
 
   checksums:
-    name: Generate & Publish Checksums
+    name: Generate, Sign & Publish Checksums
     needs: [resolve-tag, build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-tag.outputs.tag_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
         with:
@@ -203,12 +214,22 @@ jobs:
           sha256sum * > ../checksums.txt
           cat ../checksums.txt
 
-      - name: Upload Checksums to Release
+      # Fails the release if the secret is missing: DeckTap refuses unsigned updates.
+      # See docs/release-signing.md.
+      - name: Sign checksums (Ed25519)
+        env:
+          DECKTAP_UPDATE_SIGNING_KEY: ${{ secrets.DECKTAP_UPDATE_SIGNING_KEY }}
+          RELEASE_TAG: ${{ needs.resolve-tag.outputs.tag_name }}
+        run: go run ./cmd/release-sign sign -tag "$RELEASE_TAG" -in checksums.txt -out checksums.txt.sig
+
+      - name: Upload Checksums and Signature to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.resolve-tag.outputs.tag_name }}
           prerelease: ${{ needs.resolve-tag.outputs.is_prerelease == 'true' }}
-          files: checksums.txt
+          files: |
+            checksums.txt
+            checksums.txt.sig
 
   deploy-pages:
     name: Deploy Web App to GitHub Pages
