@@ -50,3 +50,9 @@ func Handler() http.Handler {
 		w.Write(data)
 	})
 }
+
+// IconSVG returns the DeckTap app icon, shared with the desktop pairing window.
+func IconSVG() []byte {
+	b, _ := files.ReadFile("static/icon.svg")
+	return b
+}

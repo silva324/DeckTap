@@ -336,8 +336,8 @@ func TestLANMode(t *testing.T) {
 	if problem {
 		t.Fatalf("expected no problem in LAN mode snapshot, got true")
 	}
-	if !strings.Contains(headline, "Local Wi-Fi") {
-		t.Fatalf("expected headline to mention Local Wi-Fi, got %q", headline)
+	if !strings.Contains(headline, "Wi-Fi") {
+		t.Fatalf("expected headline to mention Wi-Fi, got %q", headline)
 	}
 	if !strings.Contains(phone, "same Wi-Fi") {
 		t.Fatalf("expected phone instruction to mention same Wi-Fi, got %q", phone)

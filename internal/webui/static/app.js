@@ -41,27 +41,26 @@
   let outQueue = Promise.resolve(), inQueue = Promise.resolve();
   let clockOffset = 0, wakeLock = null, toastTimer = null;
   let enteredPin = "";
-  const APP_VERSION = "0.8.0";
-
+  // The web app ships inside the host binary, so the host's version is the app's version.
   function updateAppVersionLabels() {
-    const rawHost = state && state.hostVersion ? String(state.hostVersion).replace(/^v/, "") : "";
-    let display = `DeckTap v${APP_VERSION}`;
-    if (rawHost && rawHost !== APP_VERSION) {
-      display = `DeckTap v${APP_VERSION} (Host v${rawHost})`;
+    const v = state && state.hostVersion ? String(state.hostVersion).replace(/^v/, "") : "";
+    const display = v ? `DeckTap by Volaro · v${v}` : "DeckTap by Volaro";
+    for (const id of ["about-app-version", "ready-app-version"]) {
+      const el = $(id);
+      if (el) el.textContent = display;
     }
-    const aboutEl = $("about-app-version");
-    if (aboutEl) aboutEl.textContent = `${display} · GitHub`;
-    const readyEl = $("ready-app-version");
-    if (readyEl) readyEl.textContent = display;
   }
 
   // ------------------------------------------------------------ preferences
   let fontSize = prefs.get("font", 22), theme = prefs.get("theme", "auto");
+  const THEME_LABELS = { auto: "Auto theme", light: "Light theme", dark: "Dark theme" };
   function applyPrefs() {
     document.documentElement.style.setProperty("--notes-size", fontSize + "px");
     const dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    $("t-theme").querySelector("span").textContent = "Theme: " + theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = dark ? "#0b1422" : "#f7f9fc";
+    $("t-theme").querySelector("span").textContent = THEME_LABELS[theme] || THEME_LABELS.auto;
   }
 
   // ------------------------------------------------------------ ui helpers
@@ -147,7 +146,7 @@
     enteredPin += d;
     renderPinDots();
     if (enteredPin.length === 4) {
-      $("pin-status").textContent = "Verifying with host…";
+      $("pin-status").textContent = "Checking…";
       show("screen-connecting");
       connect();
     }
@@ -174,7 +173,7 @@
           el.classList.add("active");
           el.classList.remove("error");
         } else {
-          el.textContent = "-";
+          el.textContent = "";
           el.classList.remove("active", "error");
         }
       }
@@ -186,7 +185,7 @@
       const el = $("pd-" + i);
       if (el) el.classList.add("error");
     }
-    $("pin-status").textContent = msg || "Invalid PIN. Please check laptop screen.";
+    $("pin-status").textContent = msg || "That PIN doesn't match. Check your computer.";
     show("screen-pin");
     setTimeout(() => {
       clearPin();
@@ -468,10 +467,10 @@
   // ------------------------------------------------------------ timer, clock, wake lock
   setInterval(() => {
     $("clock").textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    if (!state || !state.showStartedAt) { $("timer").textContent = "00:00"; return; }
+    if (!state || !state.showStartedAt) { $("timer-val").textContent = "00:00"; return; }
     const override = JSON.parse(ss.get("timer") || "null");
     const base = override && override.show === state.showStartedAt ? override.at : state.showStartedAt;
-    $("timer").textContent = fmt((Date.now() + clockOffset - base) / 1000);
+    $("timer-val").textContent = fmt((Date.now() + clockOffset - base) / 1000);
   }, 500);
   $("timer").addEventListener("click", () => {
     if (state && state.showStartedAt) { ss.set("timer", JSON.stringify({ show: state.showStartedAt, at: Date.now() + clockOffset })); buzz(); }
@@ -704,7 +703,7 @@
     const lbl = $("p-gyro-label");
     const hint = $("pointer-hint-text");
     if (btn) btn.classList.toggle("active", gyroEnabled);
-    if (lbl) lbl.textContent = gyroEnabled ? "Tilt: On" : "Tilt: Off";
+    if (lbl) lbl.textContent = gyroEnabled ? "Tilt on" : "Tilt off";
     if (hint) {
       hint.textContent = gyroEnabled
         ? "Tilt phone or drag on slide to aim • Double-tap to center"
@@ -1210,9 +1209,9 @@
 
       if (feedback) {
         if (!barcodeDetector && typeof jsQR !== "function") {
-          feedback.textContent = "Live detector unsupported: use Upload or paste link below.";
+          feedback.textContent = "Live scanning isn't available here. Use a photo or paste the link.";
         } else {
-          feedback.textContent = "Point camera at QR code on laptop screen";
+          feedback.textContent = "Point your camera at the code on your computer";
         }
       }
       runScanLoop();
@@ -1220,7 +1219,7 @@
       console.error("Camera access error:", err);
       if (feedback) {
         if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          feedback.textContent = "Camera access denied. Please allow camera in settings or paste link.";
+          feedback.textContent = "Camera access is off. Allow it in Settings, or paste the link.";
         } else {
           feedback.textContent = "Camera error: " + (err.message || err.name);
         }

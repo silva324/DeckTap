@@ -1,14 +1,14 @@
 {
   "id": "decktap-pwa",
-  "name": "DeckTap Presentation Remote",
+  "name": "DeckTap",
   "short_name": "DeckTap",
-  "description": "Zero-Trust E2EE presentation remote with speaker notes and laser pointer",
+  "description": "Your phone as a private presentation remote, with speaker notes and a laser pointer.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#090d16",
-  "theme_color": "#0f172a",
+  "background_color": "#0b1422",
+  "theme_color": "#0b1422",
   "launch_handler": {
     "client_mode": ["focus-existing", "auto"]
   },

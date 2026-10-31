@@ -362,7 +362,7 @@ func (h *Hub) authenticate(conn *ws.Conn) (*client, bool) {
 			h.hostSeq++
 			if failFrame, err := c.SealJSON(e2ee.HostToClient, map[string]any{
 				"type":  "AUTH_FAIL",
-				"error": "Invalid 4-digit PIN code. Please check presenter screen.",
+				"error": "That PIN doesn't match. Check your computer.",
 				"seq":   h.hostSeq,
 			}); err == nil {
 				_ = conn.WriteText(failFrame)

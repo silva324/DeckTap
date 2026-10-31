@@ -9,6 +9,7 @@ package admin
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -21,6 +22,7 @@ import (
 	"github.com/silva324/DeckTap/internal/e2ee"
 	"github.com/silva324/DeckTap/internal/qr"
 	"github.com/silva324/DeckTap/internal/updater"
+	"github.com/silva324/DeckTap/internal/webui"
 )
 
 // View is what the page shows.
@@ -316,6 +318,23 @@ func (s *Server) apiStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// iconSVGBase64 is the shared app icon, inlined as a data URI (the page CSP allows data: images).
+var iconSVGBase64 = base64.StdEncoding.EncodeToString(webui.IconSVG())
+
+// connectionLine describes how the phone connects, for the window footer.
+func connectionLine(v View) string {
+	switch v.Mode {
+	case "lan":
+		return "Same Wi-Fi · " + v.LANIP
+	case "tunnel":
+		if v.PublicHost != "" {
+			return "Internet · " + v.PublicHost
+		}
+		return "Internet"
+	}
+	return "Test mode · this computer only"
+}
+
 func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/"+s.secret+"/" {
 		http.NotFound(w, r)
@@ -328,9 +347,24 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 			qrHTML = `<div class="qr-box" id="qr-container">` + code.SVG(8) + `</div>`
 		}
 	}
-	statusColor := "#10b981"
-	if v.Problem {
-		statusColor = "#f59e0b"
+	badgeClass, badgeText := "", "Ready to pair"
+	switch {
+	case v.Paired:
+		badgeClass, badgeText = "ok", "Phone connected"
+	case v.Problem:
+		badgeClass, badgeText = "warn", "Needs attention"
+	}
+	modeTab := func(m string) string {
+		if v.Mode == m {
+			return " active"
+		}
+		return ""
+	}
+	hideIf := func(hide bool) string {
+		if hide {
+			return ` hidden`
+		}
+		return ""
 	}
 
 	var b strings.Builder
@@ -339,612 +373,231 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DeckTap — Presentation Remote</title>
+<meta name="color-scheme" content="light dark">
+<title>DeckTap</title>
 <style>
+/* Volaro design tokens (design-system/tokens.json); Dawn is DeckTap's accent. */
 :root {
-  --bg: #090d16;
-  --panel: #0f172a;
-  --card: #1e293b;
-  --line: #334155;
-  --text: #f8fafc;
-  --muted: #94a3b8;
-  --accent: #10b981;
-  --cyan: #38bdf8;
-  --warn: #f59e0b;
+  --bg: #f7f9fc; --panel: #ffffff; --sunken: #eef2f8; --line: #dfe6f1; --line-strong: #7d8da4;
+  --text: #0e1a2b; --muted: #4a5a70; --accent: #ff8a6b; --accent-ink: #0e1a2b; --accent-soft: #ffe4db;
+  --accent-text: #b9431f; --focus: #2557e6; --success: #1a7350; --warning: #946000; --danger: #c4352b;
+  --font: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1422; --panel: #111d2e; --sunken: #08101b; --line: #22324a; --line-strong: #5f7596;
+    --text: #f2f5fa; --muted: #a9b8cc; --accent: #ff9b80; --accent-ink: #0b1422; --accent-soft: #3a2420;
+    --accent-text: #ffaa91; --focus: #8fb2ff; --success: #5bd39a; --warning: #f2b84b; --danger: #ff8a80;
+  }
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  user-select: none;
-}
-.app-card {
-  width: 100%;
-  max-width: 440px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  padding: 24px 22px;
-  text-align: center;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-}
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 19px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -0.02em;
-}
-.brand-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-}
-.brand-version {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  letter-spacing: 0;
-  vertical-align: middle;
-}
-.badge-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--accent);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-.badge-status.warn {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warn);
-  border-color: rgba(245, 158, 11, 0.3);
-}
-.badge-status.connected {
-  background: rgba(56, 189, 248, 0.15);
-  color: var(--cyan);
-  border-color: rgba(56, 189, 248, 0.3);
-}
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 6px currentColor;
-}
-.status-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 4px;
-  color: #fff;
-}
-.status-sub {
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 14px;
-}
-.qr-box {
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  margin: 4px 0 14px;
-  border: 3px solid rgba(56, 189, 248, 0.2);
-}
-.qr-box svg {
-  width: 210px;
-  height: 210px;
-  display: block;
-}
-.pin-card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
-  position: relative;
-}
-.pin-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-.pin-digits {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: 8px;
-  color: var(--cyan);
-  text-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
-}
-.connected-card {
-  display: none;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 16px;
-  padding: 18px;
-  margin-bottom: 14px;
-  color: #fff;
-}
-.connected-card.active { display: block; }
-.connected-icon { font-size: 36px; margin-bottom: 6px; }
-.warning-pill {
-  font-size: 11px;
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  border-radius: 8px;
-  padding: 6px 10px;
-  margin-bottom: 14px;
-}
-.actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-.btn {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--text);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all .15s ease;
-  user-select: none;
-}
-.btn:hover { background: #334155; border-color: #475569; }
-.btn:active { transform: scale(0.97); }
-.btn-primary { background: var(--accent); color: #042f2e; border: none; font-weight: 700; }
-.btn-primary:hover { background: #34d399; }
-.btn-danger {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
-}
-.btn-danger:hover {
-  background: rgba(239, 68, 68, 0.3);
-  border-color: rgba(239, 68, 68, 0.6);
-  color: #fff;
-}
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.btn-header-quit {
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.12);
-  color: #fca5a5;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all .15s ease;
-  user-select: none;
-}
-.btn-header-quit:hover {
-  background: #ef4444;
-  color: #fff;
-  border-color: #ef4444;
-}
-.tunnel-info {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 12px;
-  word-break: break-all;
-}
-.footer-links {
-  margin-top: 10px;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.footer-link {
-  color: var(--cyan);
-  text-decoration: none;
-  opacity: 0.8;
-  transition: opacity 0.15s ease;
-}
-.footer-link:hover {
-  opacity: 1;
-  text-decoration: underline;
-}
-.footer-sep {
-  color: var(--muted);
-  opacity: 0.4;
-}
-.footer-btn {
-  background: none;
-  border: none;
-  color: var(--cyan);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 0;
-  opacity: 0.8;
-  font-family: inherit;
-  transition: all 0.15s ease;
-}
-.footer-btn:hover {
-  opacity: 1;
-  text-decoration: underline;
-}
-.footer-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  text-decoration: none;
-}
-.update-toast {
-  margin-top: 8px;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 6px;
-  display: inline-block;
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-.update-toast.error {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-/* Update Card */
+html, body { height: 100%; }
+body { font: 14px/1.5 var(--font); background: var(--bg); color: var(--text); user-select: none;
+  display: flex; flex-direction: column; padding: 16px 20px 14px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hidden { display: none !important; }
-.update-card {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(56, 189, 248, 0.14) 100%);
-  border: 1px solid rgba(52, 211, 153, 0.4);
-  border-radius: 18px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  text-align: left;
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.15);
-  animation: fadeInDown 0.25s ease;
-}
-@keyframes fadeInDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.update-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.update-pill {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.2);
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  padding: 3px 8px;
-  border-radius: 999px;
-}
-.btn-update-close {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 15px;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
-  transition: color 0.15s;
-}
-.btn-update-close:hover { color: #fff; }
-.update-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 3px;
-}
-.update-sub {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.4;
-  margin-bottom: 12px;
-}
-.update-notes-box {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  max-height: 130px;
-  overflow-y: auto;
-  font-size: 12px;
-  color: #cbd5e1;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  user-select: text;
-}
-.update-progress-box {
-  margin: 10px 0 12px;
-}
-.update-progress-track {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-.update-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #10b981, #38bdf8);
-  border-radius: 999px;
-  transition: width 0.3s ease;
-}
-.update-progress-text {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--cyan);
-}
-.update-btn-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.btn-ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--muted);
-}
-.btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-}
-.mode-switcher {
-  display: flex;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 3px;
-  margin-bottom: 16px;
-  gap: 4px;
-}
-.mode-tab {
-  flex: 1;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 7px 10px;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all .15s ease;
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.mode-tab:hover {
-  color: var(--text);
-}
-.mode-tab.active {
-  background: rgba(56, 189, 248, 0.15);
-  color: var(--cyan);
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
+.ic { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+.header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.brand { display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 500; letter-spacing: -0.01em; margin-right: auto; }
+.brand img { width: 28px; height: 28px; border-radius: 7px; }
+.status { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+.status.ok { color: var(--success); } .status.ok .dot { background: var(--success); }
+.status.warn { color: var(--warning); } .status.warn .dot { background: var(--warning); }
+.icon-btn { width: 32px; height: 32px; border-radius: 999px; border: 0; background: transparent; color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center; }
+.icon-btn:hover { background: var(--sunken); color: var(--text); }
+
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: 38px; z-index: 10; min-width: 210px; padding: 6px; border-radius: 16px;
+  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 12px 32px rgba(5, 16, 29, .18); }
+.menu button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 10px;
+  background: transparent; text-align: left; font-size: 13px; }
+.menu button:hover { background: var(--sunken); }
+.menu button:disabled { opacity: .5; cursor: default; }
+.menu .danger { color: var(--danger); }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+.menu .meta { padding: 6px 10px 4px; font-size: 11px; color: var(--muted); }
+
+.modes { display: flex; padding: 3px; gap: 3px; border-radius: 999px; background: var(--sunken); border: 1px solid var(--line); margin-bottom: 16px; }
+.mode { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 10px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 500;
+  transition: background .2s var(--ease), color .2s var(--ease); }
+.mode:hover { color: var(--text); }
+.mode.active { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(5, 16, 29, .12); }
+
+.main { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 0; }
+.headline { font-size: 21px; font-weight: 300; letter-spacing: -0.015em; }
+.detail { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.qr-box { background: #ffffff; border-radius: 24px; padding: 14px; margin: 16px 0 14px; border: 1px solid var(--line); line-height: 0; }
+.qr-box svg { width: 196px; height: 196px; display: block; }
+.pin { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pin-digits { font-size: 40px; font-weight: 300; letter-spacing: .22em; margin-right: -.22em; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.privacy { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.privacy .ic { width: 14px; height: 14px; }
+
+.connected { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+.connected .ring { width: 72px; height: 72px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text);
+  display: flex; align-items: center; justify-content: center; }
+.connected .ring .ic { width: 32px; height: 32px; }
+
+.actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 18px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: var(--panel); font-size: 13px; font-weight: 500;
+  transition: transform .2s var(--ease), background .2s var(--ease); }
+.btn:hover { background: var(--sunken); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(.96); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--text); background: var(--sunken); }
+
+.footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+  font-size: 11px; color: var(--muted); }
+.footer span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast { position: fixed; left: 50%; bottom: 48px; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px;
+  background: var(--text); color: var(--bg); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.toast.error { background: var(--danger); color: #fff; }
+
+.update { border: 1px solid var(--line); background: var(--panel); border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; text-align: left; }
+.update-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.update-title { font-size: 14px; font-weight: 500; }
+.update-sub { font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+.update-notes { background: var(--sunken); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; max-height: 110px;
+  overflow-y: auto; font-size: 12px; color: var(--muted); white-space: pre-wrap; user-select: text; }
+.track { height: 4px; border-radius: 999px; background: var(--sunken); overflow: hidden; margin-bottom: 6px; }
+.fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .3s var(--ease); }
+.fill.error { background: var(--danger); }
+.progress-text { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+.update-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.update-row .btn { padding: 7px 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="app-card">
-  <div class="header">
-    <div class="brand">
-      <svg class="brand-icon" viewBox="0 0 512 512">
-        <rect width="512" height="512" rx="104" fill="#0f172a" stroke="#1e293b" stroke-width="8"/>
-        <rect x="136" y="150" width="240" height="160" rx="18" fill="#1e293b" stroke="#38bdf8" stroke-width="6"/>
-        <rect x="164" y="182" width="110" height="14" rx="7" fill="#f8fafc"/>
-        <rect x="164" y="214" width="184" height="10" rx="5" fill="#64748b"/>
-        <circle cx="376" cy="136" r="28" fill="#090d16" stroke="#10b981" stroke-width="5"/>
-        <path d="M 368 136 L 373 141 L 385 129" fill="none" stroke="#10b981" stroke-width="6" stroke-linecap="round"/>
-        <path d="M 110 360 C 180 420, 332 420, 402 360" fill="none" stroke="#10b981" stroke-width="14" stroke-linecap="round"/>
-      </svg>
-      DeckTap <span class="brand-version" id="brand-version">` + html.EscapeString(v.CurrentVersion) + `</span>
-    </div>
-    <div class="header-right">
-      <div class="badge-status `)
-	if v.Problem {
-		b.WriteString("warn")
-	} else if v.Paired {
-		b.WriteString("connected")
-	}
-	b.WriteString(`" id="badge-status">
-        <span class="dot"></span>
-        <span id="badge-text">`)
-	if v.Paired {
-		b.WriteString("Phone Connected")
-	} else if v.Problem {
-		b.WriteString("Connecting…")
-	} else {
-		b.WriteString("Ready to Pair")
-	}
-	b.WriteString(`</span>
-      </div>
-      <button type="button" class="btn-header-quit" id="btn-header-quit" title="Quit DeckTap completely">⏻ Quit</button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.77.04"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20M14.12 14.12a3 3 0 1 1-4.24-4.24"/></symbol>
+  <symbol id="i-smartphone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+</defs></svg>
+
+<header class="header">
+  <div class="brand"><img src="` + "data:image/svg+xml;base64," + iconSVGBase64 + `" alt="">DeckTap</div>
+  <div class="status ` + badgeClass + `" id="badge-status"><span class="dot"></span><span id="badge-text">` + badgeText + `</span></div>
+  <div class="menu-wrap">
+    <button type="button" class="icon-btn" id="btn-more" aria-label="More" aria-haspopup="menu" aria-expanded="false"><svg class="ic"><use href="#i-more"/></svg></button>
+    <div class="menu hidden" id="menu" role="menu">
+      <button type="button" role="menuitem" id="btn-reload-deck"><svg class="ic"><use href="#i-refresh"/></svg>Reload notes</button>
+      <button type="button" role="menuitem" id="btn-check-update"><svg class="ic"><use href="#i-download"/></svg><span>Check for updates</span></button>
+      <hr>
+      <button type="button" role="menuitem" class="danger" id="btn-quit"><svg class="ic"><use href="#i-power"/></svg>Quit DeckTap</button>
+      <div class="meta" id="footer-version-link">DeckTap by Volaro · ` + html.EscapeString(v.CurrentVersion) + `</div>
     </div>
   </div>
+</header>
 
-  <!-- Update Available Banner -->
-  <div id="update-card" class="update-card hidden">
-    <div class="update-top">
-      <div class="update-pill">✨ NEW UPDATE AVAILABLE</div>
-      <button type="button" class="btn-update-close" id="btn-update-dismiss" title="Dismiss">✕</button>
-    </div>
-    <div class="update-title" id="update-title">DeckTap update ready</div>
-    <div class="update-sub" id="update-sub">A newer version is ready to install. Would you like to update?</div>
-    
-    <div id="update-progress-box" class="update-progress-box hidden">
-      <div class="update-progress-track">
-        <div class="update-progress-fill" id="update-progress-fill"></div>
-      </div>
-      <div class="update-progress-text" id="update-progress-text">Downloading update…</div>
-    </div>
-
-    <div id="update-notes-box" class="update-notes-box hidden">
-      <div class="update-notes-content" id="update-notes-content"></div>
-    </div>
-
-    <div class="update-btn-row" id="update-btn-row">
-      <button type="button" class="btn btn-primary" id="btn-update-now">🚀 Update Now</button>
-      <button type="button" class="btn" id="btn-update-notes">Release Notes</button>
-      <button type="button" class="btn hidden" id="btn-update-manual">Manual Download</button>
-      <button type="button" class="btn btn-ghost" id="btn-update-later">Later</button>
-    </div>
+<div id="update-card" class="update hidden">
+  <div class="update-top">
+    <div class="update-title" id="update-title">Update available</div>
+    <button type="button" class="icon-btn" id="btn-update-dismiss" aria-label="Dismiss"><svg class="ic"><use href="#i-x"/></svg></button>
   </div>
-
-  <div class="mode-switcher" id="mode-switcher">
-    <button type="button" class="mode-tab`)
-	if v.Mode != "lan" {
-		b.WriteString(" active")
-	}
-	b.WriteString(`" id="tab-tunnel" onclick="switchMode('tunnel')" title="Connect over the Internet (Cloudflare)">🌐 Cloud Tunnel</button>
-    <button type="button" class="mode-tab`)
-	if v.Mode == "lan" {
-		b.WriteString(" active")
-	}
-	b.WriteString(`" id="tab-lan" onclick="switchMode('lan')" title="Zero-Config Direct Connection over Local Wi-Fi or Hotspot">📶 Local Wi-Fi</button>
+  <div class="update-sub" id="update-sub">A newer version is ready to install.</div>
+  <div id="update-progress-box" class="hidden">
+    <div class="track"><div class="fill" id="update-progress-fill"></div></div>
+    <div class="progress-text" id="update-progress-text">Downloading…</div>
   </div>
+  <div id="update-notes-box" class="update-notes hidden"><div id="update-notes-content"></div></div>
+  <div class="update-row" id="update-btn-row">
+    <button type="button" class="btn primary" id="btn-update-now">Update now</button>
+    <button type="button" class="btn" id="btn-update-notes">What's new</button>
+    <button type="button" class="btn hidden" id="btn-update-manual">Download manually</button>
+    <button type="button" class="btn ghost" id="btn-update-later">Later</button>
+  </div>
+</div>
 
-  <div id="unpaired-section" `)
-	if v.Paired {
-		b.WriteString(`style="display:none;"`)
-	}
-	b.WriteString(`>
-    <div class="status-title" id="st-headline">` + html.EscapeString(v.Headline) + `</div>
-    <div class="status-sub" id="st-detail">` + html.EscapeString(v.Detail) + `</div>
+<div class="modes" id="mode-switcher" role="radiogroup" aria-label="How your phone connects">
+  <button type="button" class="mode` + modeTab("tunnel") + `" id="tab-tunnel" role="radio" onclick="switchMode('tunnel')" title="Works on any network, including mobile data"><svg class="ic"><use href="#i-globe"/></svg>Internet</button>
+  <button type="button" class="mode` + modeTab("lan") + `" id="tab-lan" role="radio" onclick="switchMode('lan')" title="Phone and computer on the same Wi-Fi. No internet needed."><svg class="ic"><use href="#i-wifi"/></svg>Same Wi-Fi</button>
+</div>
 
+<main class="main">
+  <section id="unpaired-section" class="main` + hideIf(v.Paired) + `">
+    <div class="headline" id="st-headline">` + html.EscapeString(v.Headline) + `</div>
+    <div class="detail" id="st-detail">` + html.EscapeString(v.Detail) + `</div>
     ` + qrHTML + `
-
-    <div class="pin-card" id="pin-card" `)
-	if v.PinCode == "" {
-		b.WriteString(`style="display:none;"`)
-	}
-	b.WriteString(`>
-      <div class="pin-label">4-Digit Security PIN</div>
+    <div class="pin` + hideIf(v.PinCode == "") + `" id="pin-card">
+      <div class="eyebrow">PIN</div>
       <div class="pin-digits" id="pin-digits">` + html.EscapeString(v.PinCode) + `</div>
     </div>
+    <div class="privacy"><svg class="ic"><use href="#i-eye-off"/></svg>Keep this window off the projector</div>
+  </section>
 
-    <div class="warning-pill">
-      🔒 Presenter screen only. Do not display this window on the audience projector.
-    </div>
-  </div>
-
-  <div class="connected-card `)
-	if v.Paired {
-		b.WriteString("active")
-	}
-	b.WriteString(`" id="connected-card">
-    <div class="connected-icon">📱</div>
-    <div class="status-title" id="conn-title">Presenter Connected</div>
-    <div class="status-sub" id="conn-sub">Your phone is paired and controlling the presentation.</div>
-  </div>
+  <section class="connected` + hideIf(!v.Paired) + `" id="connected-card">
+    <div class="ring"><svg class="ic"><use href="#i-smartphone"/></svg></div>
+    <div class="headline" id="conn-title">Your phone is in control</div>
+    <div class="detail" id="conn-sub">` + html.EscapeString(v.Detail) + `</div>
+  </section>
 
   <div class="actions">
-    <form method="post" action="/` + s.secret + `/reset" style="display:inline;">
-      <button type="submit" class="btn" title="Create a fresh pairing code and disconnect previous devices">🔄 New Code</button>
+    <form method="post" action="/` + s.secret + `/reset">
+      <button type="submit" class="btn" id="btn-new-code" title="Make a new code and disconnect any phone"><svg class="ic"><use href="#i-rotate"/></svg><span id="new-code-label">` + map[bool]string{true: "Disconnect phone", false: "New code"}[v.Paired] + `</span></button>
     </form>
-    <button type="button" class="btn" id="btn-reload-deck" onclick="reloadDeckNow()" title="Reload slide titles and speaker notes from PowerPoint">↻ Reload Notes</button>
-    <button type="button" class="btn" id="btn-copy-link">📋 Copy Link</button>
-    <button type="button" class="btn btn-danger" id="btn-quit" title="Quit DeckTap completely">⏻ Quit</button>
+    <button type="button" class="btn ghost` + hideIf(v.Paired) + `" id="btn-copy-link"><svg class="ic"><use href="#i-copy"/></svg><span>Copy link</span></button>
   </div>
+</main>
 
-  <div class="tunnel-info" id="tunnel-info">`)
-	if v.Mode == "lan" {
-		b.WriteString("Local Wi-Fi Mode · Direct IP: " + html.EscapeString(v.LANIP) + " · Zero Internet Required")
-	} else if v.PublicHost != "" {
-		b.WriteString("Web App: silva324.github.io/DeckTap · Host: " + html.EscapeString(v.PublicHost))
-	} else {
-		b.WriteString("Web App: silva324.github.io/DeckTap")
-	}
-	b.WriteString(`</div>
-  <div class="footer-links">
-    <a href="https://github.com/silva324/DeckTap" target="_blank" rel="noopener" class="footer-link" id="footer-version-link">DeckTap ` + html.EscapeString(v.CurrentVersion) + ` · GitHub Repository</a>
-    <span class="footer-sep">·</span>
-    <button type="button" class="footer-btn" id="btn-footer-reload-deck" onclick="reloadDeckNow()">Reload notes</button>
-    <span class="footer-sep">·</span>
-    <button type="button" class="footer-btn" id="btn-check-update" onclick="checkUpdateNow()">Check for updates</button>
-  </div>
-  <div id="update-toast" class="update-toast hidden"></div>
-</div>
+<footer class="footer">
+  <span id="tunnel-info">` + html.EscapeString(connectionLine(v)) + `</span>
+  <span>DeckTap by Volaro</span>
+</footer>
+<div id="update-toast" class="toast hidden" role="status"></div>
 
 <script>
 let lastPairingURL = ` + fmt.Sprintf("%q", v.PairingURL) + `;
+const $ = (id) => document.getElementById(id);
+const show = (el, on) => el && el.classList.toggle("hidden", !on);
+
+const menu = $("menu"), moreBtn = $("btn-more");
+function setMenu(open) { show(menu, open); moreBtn.setAttribute("aria-expanded", open ? "true" : "false"); }
+moreBtn.addEventListener("click", (e) => { e.stopPropagation(); setMenu(menu.classList.contains("hidden")); });
+document.addEventListener("click", (e) => { if (!menu.contains(e.target)) setMenu(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMenu(false); });
 
 async function switchMode(mode) {
   try {
-    const res = await fetch("mode", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode })
-    });
-    if (res.ok) {
-      updateModeTabs(mode);
-      refreshStatus();
-    }
-  } catch (e) {
-    console.error("switchMode failed", e);
+    const res = await fetch("mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }) });
+    if (res.ok) { updateModeTabs(mode); refreshStatus(); }
+  } catch (e) { console.error("switchMode failed", e); }
+}
+
+// Only the real mode is highlighted; local test mode highlights neither.
+function updateModeTabs(mode) {
+  for (const [id, m] of [["tab-tunnel", "tunnel"], ["tab-lan", "lan"]]) {
+    const tab = $(id);
+    tab.classList.toggle("active", mode === m);
+    tab.setAttribute("aria-checked", mode === m ? "true" : "false");
   }
 }
 
-function updateModeTabs(mode) {
-  const tabTunnel = document.getElementById("tab-tunnel");
-  const tabLAN = document.getElementById("tab-lan");
-  if (tabTunnel && tabLAN) {
-    tabTunnel.classList.toggle("active", mode !== "lan");
-    tabLAN.classList.toggle("active", mode === "lan");
-  }
+function connectionLine(d) {
+  if (d.mode === "lan") return "Same Wi-Fi · " + (d.lanIP || "local network");
+  if (d.mode === "tunnel") return d.publicHost ? "Internet · " + d.publicHost : "Internet";
+  return "Test mode · this computer only";
 }
 
 async function refreshStatus() {
@@ -952,321 +605,148 @@ async function refreshStatus() {
     const res = await fetch("status");
     if (!res.ok) return;
     const data = await res.json();
-    
-    if (data.mode) {
-      updateModeTabs(data.mode);
-    }
+    updateModeTabs(data.mode);
 
-    // Update badge
-    const badge = document.getElementById("badge-status");
-    const badgeTxt = document.getElementById("badge-text");
-    const unpairedSec = document.getElementById("unpaired-section");
-    const connCard = document.getElementById("connected-card");
+    const badge = $("badge-status"), badgeTxt = $("badge-text");
+    if (data.paired) { badge.className = "status ok"; badgeTxt.textContent = "Phone connected"; }
+    else if (data.problem) { badge.className = "status warn"; badgeTxt.textContent = "Needs attention"; }
+    else { badge.className = "status"; badgeTxt.textContent = "Ready to pair"; }
 
-    if (data.paired) {
-      badge.className = "badge-status connected";
-      badgeTxt.textContent = "Phone Connected";
-      unpairedSec.style.display = "none";
-      connCard.classList.add("active");
-      document.getElementById("conn-sub").textContent = data.detail || "Controlling presentation.";
-    } else {
-      connCard.classList.remove("active");
-      unpairedSec.style.display = "block";
-      if (data.problem) {
-        badge.className = "badge-status warn";
-        badgeTxt.textContent = "Connecting…";
-      } else {
-        badge.className = "badge-status";
-        badgeTxt.textContent = "Ready to Pair";
-      }
-    }
+    show($("unpaired-section"), !data.paired);
+    show($("connected-card"), !!data.paired);
+    show($("btn-copy-link"), !data.paired);
+    $("new-code-label").textContent = data.paired ? "Disconnect phone" : "New code";
+    $("conn-sub").textContent = data.detail || "";
+    $("st-headline").textContent = data.headline || "";
+    $("st-detail").textContent = data.detail || "";
 
-    document.getElementById("st-headline").textContent = data.headline || "";
-    document.getElementById("st-detail").textContent = data.detail || "";
-    
-    // Update PIN
-    const pinEl = document.getElementById("pin-digits");
-    const pinCard = document.getElementById("pin-card");
-    if (data.pinCode) {
-      pinEl.textContent = data.pinCode;
-      pinCard.style.display = "block";
-    } else {
-      pinCard.style.display = "none";
-    }
+    show($("pin-card"), !!data.pinCode);
+    if (data.pinCode) $("pin-digits").textContent = data.pinCode;
 
-    // Update QR code if changed
     if (data.pairingURL && data.pairingURL !== lastPairingURL && data.qrSVG) {
       lastPairingURL = data.pairingURL;
-      const qrCont = document.getElementById("qr-container");
-      if (qrCont) qrCont.innerHTML = data.qrSVG;
+      const qr = $("qr-container");
+      if (qr) qr.innerHTML = data.qrSVG;
     }
-
-    const tInfo = document.getElementById("tunnel-info");
-    if (tInfo) {
-      if (data.mode === "lan") {
-        tInfo.textContent = "Local Wi-Fi Mode · Direct IP: " + (data.lanIP || "Local IP") + " · Zero Internet Required";
-      } else if (data.publicHost) {
-        tInfo.textContent = "Tunnel: " + data.publicHost;
-      } else {
-        tInfo.textContent = "Web App: silva324.github.io/DeckTap";
-      }
-    }
-
-    if (data.currentVersion) {
-      const bv = document.getElementById("brand-version");
-      if (bv) bv.textContent = data.currentVersion;
-      const fv = document.getElementById("footer-version-link");
-      if (fv) fv.textContent = "DeckTap " + data.currentVersion + " · GitHub Repository";
-    }
-
-    // Handle update banner
-    if (data.update) {
-      renderUpdate(data.update);
-    }
+    $("tunnel-info").textContent = connectionLine(data);
+    if (data.currentVersion) $("footer-version-link").textContent = "DeckTap by Volaro · " + data.currentVersion;
+    if (data.update) renderUpdate(data.update);
   } catch {}
 }
 
-let activeUpdate = null;
-let updateDismissed = false;
-
+let activeUpdate = null, updateDismissed = false;
 function renderUpdate(u) {
-  const card = document.getElementById("update-card");
-  if (!card) return;
-  if (!u || !u.available) {
-    card.classList.add("hidden");
-    return;
-  }
-  const isBusy = (u.state === "downloading" || u.state === "verifying" || u.state === "applying" || u.state === "restarting");
-  if (!isBusy && (updateDismissed || sessionStorage.getItem("dt_update_dismissed_" + u.latestVersion) === "1")) {
-    card.classList.add("hidden");
-    return;
-  }
+  const card = $("update-card");
+  if (!u || !u.available) { show(card, false); return; }
+  const busy = ["downloading", "verifying", "applying", "restarting"].includes(u.state);
+  if (!busy && (updateDismissed || sessionStorage.getItem("dt_update_dismissed_" + u.latestVersion) === "1")) { show(card, false); return; }
 
   activeUpdate = u;
-  card.classList.remove("hidden");
-  document.getElementById("update-title").textContent = (u.latestVersion || "New version") + " is available!";
-  const sub = document.getElementById("update-sub");
-  const progressBox = document.getElementById("update-progress-box");
-  const progressFill = document.getElementById("update-progress-fill");
-  const progressText = document.getElementById("update-progress-text");
-  const btnNow = document.getElementById("btn-update-now");
-  const btnManual = document.getElementById("btn-update-manual");
-  const btnLater = document.getElementById("btn-update-later");
-  const btnDismiss = document.getElementById("btn-update-dismiss");
+  show(card, true);
+  $("update-title").textContent = "DeckTap " + (u.latestVersion || "update") + " is available";
+  const sub = $("update-sub"), fill = $("update-progress-fill"), ptxt = $("update-progress-text"), now = $("btn-update-now");
+  fill.classList.toggle("error", u.state === "error");
+  show($("update-progress-box"), busy || u.state === "error");
+  show($("btn-update-later"), !busy);
+  show($("btn-update-dismiss"), !busy);
+  show($("btn-update-manual"), u.state === "error");
+  now.disabled = busy;
 
-  if (isBusy) {
-    progressBox.classList.remove("hidden");
-    btnNow.disabled = true;
-    btnLater.classList.add("hidden");
-    btnDismiss.classList.add("hidden");
-    btnManual.classList.add("hidden");
-
-    if (u.state === "downloading") {
-      const pct = u.progress || 0;
-      progressFill.style.width = pct + "%";
-      progressFill.style.background = "linear-gradient(90deg, #10b981, #38bdf8)";
-      progressText.textContent = "Downloading update… " + pct + "%";
-      btnNow.textContent = "⏳ Downloading (" + pct + "%)…";
-      sub.textContent = "Downloading the latest version in the background…";
-    } else if (u.state === "verifying") {
-      progressFill.style.width = "75%";
-      progressText.textContent = "Verifying cryptographic checksum…";
-      btnNow.textContent = "⏳ Verifying…";
-      sub.textContent = "Verifying package integrity…";
-    } else if (u.state === "applying") {
-      progressFill.style.width = "90%";
-      progressText.textContent = "Installing update files…";
-      btnNow.textContent = "⏳ Installing…";
-      sub.textContent = "Replacing executable atomically…";
-    } else if (u.state === "restarting") {
-      progressFill.style.width = "100%";
-      progressText.textContent = "✨ Restarting DeckTap…";
-      btnNow.textContent = "Restarting…";
-      sub.textContent = "Update complete! DeckTap is restarting now…";
-    }
+  const steps = {
+    downloading: [u.progress || 0, "Downloading… " + (u.progress || 0) + "%", "Downloading"],
+    verifying: [75, "Checking the release signature…", "Checking"],
+    applying: [90, "Installing…", "Installing"],
+    restarting: [100, "Restarting DeckTap…", "Restarting"],
+  };
+  if (busy) {
+    const [pct, text, label] = steps[u.state];
+    fill.style.width = pct + "%"; ptxt.textContent = text; now.textContent = label + "…";
+    sub.textContent = "You can keep presenting. DeckTap restarts when it's done.";
   } else if (u.state === "error") {
-    progressBox.classList.remove("hidden");
-    progressFill.style.width = "100%";
-    progressFill.style.background = "#ef4444";
-    progressText.textContent = "⚠️ " + (u.error || "Update encountered an error");
-    btnNow.disabled = false;
-    btnNow.textContent = "🔄 Retry Update";
-    btnManual.classList.remove("hidden");
-    btnLater.classList.remove("hidden");
-    btnDismiss.classList.remove("hidden");
-    sub.textContent = "An error occurred while updating automatically. You can retry or download manually.";
+    fill.style.width = "100%"; ptxt.textContent = u.error || "The update didn't finish.";
+    now.textContent = "Try again";
+    sub.textContent = "The update didn't finish. Try again, or download it manually.";
   } else {
-    // idle
-    progressBox.classList.add("hidden");
-    btnNow.disabled = false;
-    btnNow.textContent = "🚀 Update Now";
-    btnManual.classList.add("hidden");
-    btnLater.classList.remove("hidden");
-    btnDismiss.classList.remove("hidden");
-    if (u.assetSize > 0) {
-      const mb = (u.assetSize / (1024 * 1024)).toFixed(1);
-      sub.textContent = "A newer version is ready to install (" + mb + " MB). Click Update Now to install automatically.";
-    } else {
-      sub.textContent = "A newer version is ready to install. Click Update Now to install automatically.";
-    }
+    now.textContent = "Update now";
+    const mb = u.assetSize > 0 ? " (" + (u.assetSize / 1048576).toFixed(1) + " MB)" : "";
+    sub.textContent = "A newer version is ready to install" + mb + ".";
   }
-
-  const notesContent = document.getElementById("update-notes-content");
-  if (notesContent) {
-    notesContent.textContent = u.releaseNotes || "Performance improvements and bug fixes.";
-  }
+  $("update-notes-content").textContent = u.releaseNotes || "Improvements and fixes.";
 }
 
 function dismissUpdate() {
   updateDismissed = true;
-  if (activeUpdate && activeUpdate.latestVersion) {
-    sessionStorage.setItem("dt_update_dismissed_" + activeUpdate.latestVersion, "1");
-  }
-  const card = document.getElementById("update-card");
-  if (card) card.classList.add("hidden");
+  if (activeUpdate && activeUpdate.latestVersion) sessionStorage.setItem("dt_update_dismissed_" + activeUpdate.latestVersion, "1");
+  show($("update-card"), false);
 }
-
-document.getElementById("btn-update-dismiss").addEventListener("click", dismissUpdate);
-document.getElementById("btn-update-later").addEventListener("click", dismissUpdate);
-
-document.getElementById("btn-update-notes").addEventListener("click", () => {
-  const box = document.getElementById("update-notes-box");
-  if (box) box.classList.toggle("hidden");
-});
-
-document.getElementById("btn-update-now").addEventListener("click", async () => {
-  const btn = document.getElementById("btn-update-now");
-  btn.disabled = true;
-  btn.textContent = "⏳ Starting Update…";
+$("btn-update-dismiss").addEventListener("click", dismissUpdate);
+$("btn-update-later").addEventListener("click", dismissUpdate);
+$("btn-update-notes").addEventListener("click", () => $("update-notes-box").classList.toggle("hidden"));
+$("btn-update-now").addEventListener("click", async () => {
+  const btn = $("btn-update-now");
+  btn.disabled = true; btn.textContent = "Starting…";
   try {
-    const res = await fetch("update/apply", { method: "POST" });
-    const data = await res.json();
-    if (!data.ok && data.error) {
-      alert("Could not start update: " + data.error);
-      btn.disabled = false;
-      btn.textContent = "🚀 Update Now";
-    }
-  } catch (e) {
-    btn.disabled = false;
-    btn.textContent = "🚀 Update Now";
-  }
+    const data = await (await fetch("update/apply", { method: "POST" })).json();
+    if (!data.ok && data.error) { showToast("Couldn't start the update: " + data.error, true); btn.disabled = false; btn.textContent = "Update now"; }
+  } catch { btn.disabled = false; btn.textContent = "Update now"; }
   refreshStatus();
 });
-
-document.getElementById("btn-update-manual").addEventListener("click", async () => {
-  try {
-    await fetch("update/manual", { method: "POST" });
-  } catch {}
-});
+$("btn-update-manual").addEventListener("click", () => fetch("update/manual", { method: "POST" }).catch(() => {}));
 
 setInterval(refreshStatus, 1500);
 
-document.getElementById("btn-copy-link").addEventListener("click", () => {
-  if (lastPairingURL) {
-    navigator.clipboard.writeText(lastPairingURL).then(() => {
-      const b = document.getElementById("btn-copy-link");
-      const old = b.textContent;
-      b.textContent = "✓ Copied!";
-      setTimeout(() => b.textContent = old, 1800);
-    });
-  }
+$("btn-copy-link").addEventListener("click", () => {
+  if (!lastPairingURL) return;
+  navigator.clipboard.writeText(lastPairingURL).then(() => showToast("Pairing link copied"));
 });
 
 async function reloadDeckNow() {
-  const btns = [document.getElementById("btn-reload-deck"), document.getElementById("btn-footer-reload-deck")].filter(Boolean);
-  btns.forEach(b => { b.disabled = true; });
+  setMenu(false);
   try {
     const res = await fetch("deck/reload", { method: "POST" });
-    if (res.ok) {
-      showUpdateToast("✓ Speaker notes & slides reloaded from PowerPoint");
-    } else {
-      showUpdateToast("Failed to reload deck", true);
-    }
-  } catch (e) {
-    showUpdateToast("Error communicating with DeckTap", true);
-  } finally {
-    btns.forEach(b => { b.disabled = false; });
-  }
+    showToast(res.ok ? "Notes reloaded from PowerPoint" : "Couldn't reload notes", !res.ok);
+  } catch { showToast("Couldn't reach DeckTap", true); }
 }
+$("btn-reload-deck").addEventListener("click", reloadDeckNow);
 
 async function checkUpdateNow() {
-  const btn = document.getElementById("btn-check-update");
-  if (!btn) return;
-  btn.disabled = true;
-  const originalText = "Check for updates";
-  btn.textContent = "Checking…";
-
+  const btn = $("btn-check-update"), label = btn.querySelector("span");
+  btn.disabled = true; label.textContent = "Checking…";
   try {
-    const res = await fetch("update/check", { method: "POST" });
-    const data = await res.json();
-    if (!data.ok) {
-      showUpdateToast("Check failed: " + (data.error || "error"), true);
-      btn.textContent = originalText;
-      btn.disabled = false;
-      return;
-    }
-    if (data.available) {
-      renderUpdate({
-        available: true,
-        latestVersion: data.latestVersion,
-        releaseURL: data.releaseURL,
-        releaseNotes: data.releaseNotes,
-        state: "idle"
-      });
-      showUpdateToast("✨ Update available: " + data.latestVersion);
-      btn.textContent = "Update available (" + data.latestVersion + ")";
-      btn.disabled = false;
-    } else {
-      showUpdateToast("✓ DeckTap is up to date (" + (data.currentVersion || "latest") + ")");
-      btn.textContent = originalText;
-      btn.disabled = false;
-    }
-  } catch (err) {
-    showUpdateToast("Network error checking for updates", true);
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
+    const data = await (await fetch("update/check", { method: "POST" })).json();
+    if (!data.ok) showToast("Couldn't check for updates", true);
+    else if (data.available) {
+      updateDismissed = false;
+      renderUpdate({ available: true, latestVersion: data.latestVersion, releaseURL: data.releaseURL, releaseNotes: data.releaseNotes, state: "idle" });
+      setMenu(false);
+    } else showToast("DeckTap is up to date");
+  } catch { showToast("Couldn't check for updates", true); }
+  btn.disabled = false; label.textContent = "Check for updates";
 }
+$("btn-check-update").addEventListener("click", checkUpdateNow);
 
-function showUpdateToast(msg, isErr) {
-  const toast = document.getElementById("update-toast");
-  if (!toast) return;
-  toast.textContent = msg;
-  toast.className = "update-toast" + (isErr ? " error" : "");
-  setTimeout(() => {
-    toast.classList.add("hidden");
-  }, 4000);
+let toastTimer = null;
+function showToast(msg, isErr) {
+  const t = $("update-toast");
+  t.textContent = msg;
+  t.className = "toast" + (isErr ? " error" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => show(t, false), 3000);
 }
 
 let isQuitting = false;
-async function quitDeckTap() {
+$("btn-quit").addEventListener("click", async () => {
   if (isQuitting) return;
   isQuitting = true;
-  const btns = [document.getElementById("btn-quit"), document.getElementById("btn-header-quit")];
-  btns.forEach(b => { if (b) { b.disabled = true; b.textContent = "⏳ Quitting…"; } });
-  try {
-    await fetch("quit", { method: "POST" });
-  } catch (e) {
-    console.warn("quit fetch failed", e);
-  }
-  document.body.innerHTML = '<div style="text-align:center;padding:50px 20px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#94a3b8;">' +
-    '<div style="font-size:44px;margin-bottom:12px;">👋</div>' +
-    '<h2 style="color:#fff;margin-bottom:8px;font-size:20px;">DeckTap has shut down</h2>' +
-    '<p style="font-size:14px;color:#64748b;">The application has exited cleanly.</p>' +
-    '</div>';
-  setTimeout(() => {
-    try { window.close(); } catch {}
-  }, 300);
-}
-const bQuit = document.getElementById("btn-quit");
-if (bQuit) bQuit.addEventListener("click", quitDeckTap);
-const bHQuit = document.getElementById("btn-header-quit");
-if (bHQuit) bHQuit.addEventListener("click", quitDeckTap);
+  try { await fetch("quit", { method: "POST" }); } catch (e) { console.warn("quit fetch failed", e); }
+  document.body.innerHTML = '<div style="margin:auto;text-align:center"><div style="font-size:21px;font-weight:300">DeckTap has quit</div>' +
+    '<div style="font-size:13px;color:var(--muted);margin-top:4px">You can close this window.</div></div>';
+  setTimeout(() => { try { window.close(); } catch {} }, 300);
+});
 </script>
 </body>
 </html>`)
 
-	_ = statusColor // reserved for dynamic themes
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(b.String()))
 }

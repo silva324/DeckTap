@@ -45,10 +45,10 @@ func setup(h *app.Host, openURL func(string)) {
 	mShow := systray.AddMenuItem("PowerPoint: —", "")
 	mShow.Disable()
 	systray.AddSeparator()
-	mModeTunnel := systray.AddMenuItemCheckbox("🌐 Cloud Tunnel (Internet)", "Connect over Internet tunnel (Cloudflare)", h.Snapshot().Mode != app.ModeLAN)
-	mModeLAN := systray.AddMenuItemCheckbox("📶 Local Wi-Fi (Offline / Direct)", "Direct connection over local Wi-Fi or Hotspot", h.Snapshot().Mode == app.ModeLAN)
+	mModeTunnel := systray.AddMenuItemCheckbox("Internet", "Works on any network, including mobile data", h.Snapshot().Mode == app.ModeTunnel)
+	mModeLAN := systray.AddMenuItemCheckbox("Same Wi-Fi", "Phone and computer on the same Wi-Fi or hotspot", h.Snapshot().Mode == app.ModeLAN)
 	systray.AddSeparator()
-	mUpdate := systray.AddMenuItem("✨ Update Available…", "Download the latest version of DeckTap")
+	mUpdate := systray.AddMenuItem("Update available…", "Download the latest version of DeckTap")
 	mUpdate.Hide()
 	mReloadDeck := systray.AddMenuItem("Reload notes & slides", "Re-read presentation notes and slides from PowerPoint")
 	mCheckUpdate := systray.AddMenuItem("Check for updates…", "Check GitHub for a newer version of DeckTap")
@@ -64,7 +64,7 @@ func setup(h *app.Host, openURL func(string)) {
 		headline, phone, show, problem := s.Describe()
 		prefix := "● "
 		if problem {
-			prefix = "⚠︎ "
+			prefix = "Needs attention · "
 		}
 		mStatus.SetTitle(prefix + headline)
 		if s.Pin != "" {
@@ -79,18 +79,14 @@ func setup(h *app.Host, openURL func(string)) {
 			mQR.SetTitle("Show status page…")
 		}
 		if s.Update.Available {
-			mUpdate.SetTitle(fmt.Sprintf("✨ Update to %s…", s.Update.LatestVer))
+			mUpdate.SetTitle(fmt.Sprintf("Update to %s…", s.Update.LatestVer))
 			mUpdate.Show()
 		} else {
 			mUpdate.Hide()
 		}
-		if s.Mode == app.ModeLAN {
-			mModeLAN.Check()
-			mModeTunnel.Uncheck()
-		} else {
-			mModeTunnel.Check()
-			mModeLAN.Uncheck()
-		}
+		// Local test mode ticks neither.
+		setChecked(mModeTunnel, s.Mode == app.ModeTunnel)
+		setChecked(mModeLAN, s.Mode == app.ModeLAN)
 		verLabel := s.Version
 		if verLabel != "" {
 			if !strings.HasPrefix(verLabel, "v") {
@@ -147,9 +143,9 @@ func setup(h *app.Host, openURL func(string)) {
 				go func() {
 					st, err := h.CheckUpdate(context.Background())
 					if err == nil && st.Available {
-						mCheckUpdate.SetTitle("✨ Update to " + st.LatestVer + "…")
+						mCheckUpdate.SetTitle("Update to " + st.LatestVer + "…")
 					} else if err == nil {
-						mCheckUpdate.SetTitle("✓ DeckTap is up to date")
+						mCheckUpdate.SetTitle("DeckTap is up to date")
 						time.Sleep(3 * time.Second)
 						mCheckUpdate.SetTitle("Check for updates…")
 					} else {
@@ -170,4 +166,12 @@ func setup(h *app.Host, openURL func(string)) {
 			}
 		}
 	}()
+}
+
+func setChecked(item *systray.MenuItem, on bool) {
+	if on {
+		item.Check()
+	} else {
+		item.Uncheck()
+	}
 }
