@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -21,7 +22,8 @@ func TestKeygenSignVerifyRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi, _ := os.Stat(keyFile); fi.Mode().Perm() != 0o600 {
+	// Windows has no Unix permission bits (os.Stat reports 0666 there).
+	if fi, _ := os.Stat(keyFile); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("key file mode %v, want 0600", fi.Mode().Perm())
 	}
 	if strings.Contains(out.String(), strings.TrimSpace(string(seed))) {
