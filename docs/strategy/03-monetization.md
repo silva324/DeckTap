@@ -15,11 +15,11 @@ DeckTap is a local, serverless tool, and "use your phone as a clicker" is a comm
 | Layer | License | Why |
 |---|---|---|
 | Host app, PWA, protocol spec, drivers | **MIT** (unchanged) | The crypto must be auditable, since that's the brand. Keeping it MIT keeps contributors and distribution channels such as Homebrew and winget happy. |
-| **DeckTap Relay** server | **AGPL-3.0** | Enterprises can self-host and audit it. AGPL stops someone else selling it as a hosted service without contributing back. |
-| Pro / Team features (`ee/` directory) | **FSL-1.1-MIT** (source-available, becomes MIT after 2 years) | The code stays visible, which helps trust, but competitors can't resell it. GitLab, Sentry and Sidekiq follow this pattern. |
-| Name and logo | **Trademark** (register "DeckTap") | Forks are welcome but must rebrand, which is the main protection for an OSS brand. |
+| **DeckTap Relay** server | **AGPL-3.0** (licensor: Volaro.ai) | Enterprises can self-host and audit it. AGPL stops someone else selling it as a hosted service without contributing back. |
+| Pro / Team features (`ee/` directory) | **FSL-1.1-MIT** (licensor: Volaro.ai; source-available, becomes MIT after 2 years) | The code stays visible, which helps trust, but competitors can't resell it. GitLab, Sentry and Sidekiq follow this pattern. |
+| Name and logo | **Trademark** ("DeckTap", registered by Volaro.ai) | Forks are welcome but must rebrand, which is the main protection for an OSS brand. |
 
-Contributions: DCO for the MIT and AGPL code. A lightweight CLA only for `ee/`, so that it can be relicensed.
+Contributions: DCO for the MIT and AGPL code. A lightweight CLA with **Volaro.ai** only for `ee/`, so that it can be relicensed. Existing MIT code needs a copyright assignment to Volaro.ai first. See [`05-volaro-transition.md`](05-volaro-transition.md) §2.
 
 **Enforcement is deliberately soft.** Pro is unlocked by an **offline Ed25519-signed licence key**: no accounts and no phoning home. Someone *can* fork and strip the check. That's acceptable, because the people who pay are professionals and companies who want it signed, updated and supported.
 
@@ -46,9 +46,9 @@ Contributions: DCO for the MIT and AGPL code. A lightweight CLA only for `ee/`, 
 
 ## Payments and operations
 
-- **Merchant of record: Lemon Squeezy or Paddle.** They handle EU/UK VAT and US sales tax, which is essential for a solo developer selling worldwide. Their licence-key APIs integrate with the offline Ed25519 keys, issued by a webhook that signs them.
+- **Merchant of record: Lemon Squeezy or Paddle.** They handle EU/UK VAT and US sales tax, which is essential for a small company selling worldwide. Volaro.ai is the vendor; the MoR resells on its behalf. Their licence-key APIs integrate with the offline Ed25519 keys, issued by a webhook that signs them.
 - **Relay costs.** Cloudflare Workers plus Durable Objects with WebSocket hibernation cost fractions of a cent per session, so the free fair-use tier costs little. Keep a hard global budget alarm.
-- **Keep** GitHub Sponsors and Buy Me a Coffee for community goodwill.
+- **Move** GitHub Sponsors to the Volaro.ai org (or Open Collective), and retire the personal Buy Me a Coffee link.
 
 ## Revenue reality check
 
