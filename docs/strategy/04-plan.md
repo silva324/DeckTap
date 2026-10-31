@@ -24,7 +24,7 @@ Phase 4  Team / Enterprise        ongoing
 | `fix(tunnel): pin cloudflared version and verify SHA-256` | P0-4 | A hash table per OS/arch is embedded. A mismatch refuses to execute. |
 | `fix(webui): fail closed without crypto.getRandomValues` | P1-3 | No `Math.random` anywhere in crypto paths. |
 | `chore: remove dead server/crypto/ppt/web packages` | P1-1 | About 3.5k lines deleted. `go mod tidy` drops gorilla. |
-| ~~`chore: rename module to github.com/silva324/DeckTap, cmd/decktap`~~ (done, #57). Next: `chore(repo): move module to decktap.app vanity path` | P1-6 | `go install decktap.app/cmd/decktap@latest` works and survives the repo moving to the Volaro.ai org. |
+| ~~`chore: rename module to github.com/silva324/DeckTap, cmd/decktap`~~ (done, #57). Next: `chore(repo): move to volaroai` ([`05`](05-volaro-transition.md) §6) | P1-6 | `go install github.com/volaroai/DeckTap/cmd/decktap@latest` works. All identifiers in [`05`](05-volaro-transition.md) §3 are set to their final values. |
 | `test(ws): add fuzz targets for frame parsing` | P1-2 | `FuzzReadFrame` runs in CI for 60 s per PR, with no panics. |
 | `docs(architecture): make SEC-001 normative and match the code` | P1-5 | Envelope field names and KDF claims match. A test asserts the documented envelope. |
 | `docs(security): threat model incl. LAN-mode HTTP limitation` | P0-6 (short term) | A `docs/threat-model.md` exists, and the UI warns when LAN mode is used on untrusted networks. |
@@ -34,7 +34,7 @@ Phase 4  Team / Enterprise        ongoing
 
 | PR / task | Done when |
 |---|---|
-| Volaro.ai company setup: copyright assignment, D-U-N-S, Apple Developer **Organization**, GitHub org transfer ([`05`](05-volaro-transition.md) §2, §5) | Assignment signed. Repo under the Volaro.ai org. Apple and Windows signing identities issued in Volaro.ai's name. |
+| Volaro.ai company setup: copyright assignment, D-U-N-S, Apple Developer **Organization**, transfer to [`volaroai`](https://github.com/volaroai) per the runbook ([`05`](05-volaro-transition.md) §2, §5, §6) | Assignment signed. Repo is `volaroai/DeckTap`. Apple and Windows signing identities issued in Volaro.ai's name. |
 | Register `decktap.app` and file the trademark in Volaro.ai's name | Domain live. Trademark filing submitted (EUIPO/UKIPO, then USPTO). |
 | `feat(webui): serve PWA from decktap.app with protected deploys` (P1-4) | Pages deploys need a protected-environment approval. Strict CSP. The old origin redirects. `allowedOrigin` is updated. |
 | `chore(release): Developer ID signing + notarization` (P0-3) | `spctl -a -vv DeckTap.app` reports accepted. The Gatekeeper workaround is gone from the README. |
@@ -93,6 +93,6 @@ A **blind rendezvous relay** that forwards opaque frames between the host and th
 ## Immediate next steps (this week)
 
 1. ~~Fix **P0-1** (lockout DoS).~~ Done in #56.
-2. ~~Delete the dead packages and rename the module.~~ Done in #57; the vanity-path follow-up is in Phase 0.
+2. ~~Delete the dead packages and rename the module.~~ Done in #57; the `volaroai` module path follow-up comes with the transfer (Phase 0).
 3. Start the Volaro.ai items with lead times: copyright assignment, D-U-N-S, then Apple Developer *Organization* and Windows signing in the company's name, plus the `decktap.app` domain.
 4. Put up a one-page landing site with a Pro waitlist so Gate A starts collecting data while Phases 0 and 1 are under way.
