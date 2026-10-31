@@ -1,7 +1,7 @@
 # DeckTap by Volaro.ai — Company Transition
 
 > Status: proposal · 2026-10-31
-> Assumptions: **Volaro.ai** is the company behind DeckTap, and its GitHub home is [`github.com/volaroai`](https://github.com/volaroai). Volaro.ai sells Pro, Team and Enterprise, runs the relay, owns the trademark, and employs or contracts the maintainers. **DeckTap has no users yet.**
+> Assumptions: **Volaro.ai** is the company behind DeckTap, and its GitHub home is [`github.com/volaroai`](https://github.com/volaroai). Volaro.ai sells DeckTap Pro, runs the relay, owns the trademark, and employs or contracts the maintainers. **DeckTap has no users yet.**
 
 DeckTap stays the **product** name, as the branding invariant in `AGENTS.md` requires. Volaro.ai is the **publisher**: "DeckTap by Volaro.ai" in the About box, the installer publisher field and the store listings. The UI should never mix the two names into one ("Volaro DeckTap").
 

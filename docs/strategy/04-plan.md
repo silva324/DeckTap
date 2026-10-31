@@ -9,8 +9,7 @@ Phase 1  Trustworthy distribution ~3 wk  ── signed, notarized, own domain, t
 Phase 2  DeckTap Relay            ~4 wk  ── reliable connectivity + first paid surface
    ▸ Gate A: waitlist ≥ 200 or ≥ 30 lifetime pre-sales
 Phase 3  Pro + licensing          ~5 wk  ── features presenters pay for
-   ▸ Gate B: ≥ 3 orgs name what they'd pay for
-Phase 4  Team / Enterprise        ongoing
+Phase 4  IT-friendly free tier    ongoing ── signed installers, policy, public security docs
 ```
 
 ---
@@ -81,12 +80,13 @@ A **blind rendezvous relay** that forwards opaque frames between the host and th
 | `feat(ee): Google Slides browser extension driver` | The basic version ships free (growth). Thumbnails and timer are Pro. |
 | `feat(pointer): Windows overlay` (P1-9) | Free: brings the laser pointer to parity with macOS. |
 
-## Phase 4: Team and Enterprise (after Gate B)
+## Phase 4: IT-friendly free tier (ongoing)
+
+There is no business tier. This work is free and open source, because it lets companies approve DeckTap, and their presenters then buy Pro.
 
 - Signed `.pkg` / `.msi`, MDM configuration profiles, and a `policy.json` (force LAN or a specific relay, disable updates, disable telemetry).
-- Self-hosted relay support package and SLA.
-- A security whitepaper plus an **independent crypto and protocol audit**, for example via OSTIF or a boutique firm (budget $5–15k, possibly OSS-funded).
-- Later, if the events segment validates: a multi-stage **operator console** for AV teams.
+- Self-hosting docs for the relay, with community support only (no SLA).
+- A public security whitepaper plus an **independent crypto and protocol audit**, for example via OSTIF or a boutique firm (budget $5–15k, possibly OSS-funded).
 
 ---
 

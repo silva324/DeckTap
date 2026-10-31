@@ -2,7 +2,7 @@
 
 > Status: proposal · 2026-10-31 · company: **Volaro.ai** · maintainer: Miguel Silva
 >
-> DeckTap is the product. Volaro.ai is the company that publishes it, sells the paid tiers and runs the relay. See [`05-volaro-transition.md`](05-volaro-transition.md).
+> DeckTap is the product. Volaro.ai is the company that publishes it, sells DeckTap Pro and runs the relay. See [`05-volaro-transition.md`](05-volaro-transition.md).
 
 ## 1. What DeckTap is today
 
@@ -23,15 +23,15 @@ The intent has three parts:
 
 1. **It works every time, on any network.** Hotel Wi-Fi, a corporate guest network or a conference hall shouldn't stop it. Reliability is the product. A remote that fails on stage once never gets used again.
 2. **It is private by construction, and you can check that.** Neither DeckTap's servers nor anyone in between can read notes or commands. The open-source code is how users verify this, and it is also a selling point.
-3. **It costs less than a clicker and does more.** It is free for individuals. Professionals and organisations pay for convenience, advanced features and control.
+3. **It costs less than a clicker and does more.** The open-source version is free for everyone, organisations included. Professionals pay for Pro: unlimited relay and the features they feel on stage.
 
 ## 3. Who it is for (in priority order)
 
 | Segment | Job to be done | Willingness to pay | Role |
 |---|---|---|---|
 | **Professional presenters**: consultants, sales engineers, trainers, keynote speakers | "Present without a $120 clicker, see my notes and timing, never fumble" | Medium: they already buy clickers | **Primary paying segment (Pro)** |
-| **Privacy-sensitive organisations**: finance, legal, health, government, pre-announcement product launches | "Confidential speaker notes can't transit a third-party cloud in clear" | High, but slow procurement | **Enterprise** (self-hosted relay, MDM, policy) |
-| **Event and conference AV teams** | "Get 40 speakers onto stage laptops reliably, with no per-speaker setup" | High per event | **Later**: operator console |
+| **Privacy-sensitive organisations**: finance, legal, health, government, pre-announcement product launches | "Confidential speaker notes can't transit a third-party cloud in clear" | Their presenters, through Pro | **Free tier for IT approval** (policy file, deployment profiles, self-hostable relay); their presenters buy Pro |
+| **Event and conference AV teams** | "Get 40 speakers onto stage laptops reliably, with no per-speaker setup" | High per event | **Not targeted**: no business tier |
 | **Educators and students** | "Free, works on school Wi-Fi, Google Slides" | Low | **Growth and community**, free forever |
 
 ## 4. Positioning vs alternatives
@@ -60,8 +60,8 @@ The intent has three parts:
 | Monthly active hosts (opt-in telemetry plus relay sessions) | 5,000 |
 | Successful pairing rate (first try, under 30 s) | ≥ 95% |
 | Relay session success on "hostile" networks | ≥ 99% |
-| Paid conversions (Pro + Team seats) | 150 to 300 |
+| Pro customers | 150 to 300 |
 | GitHub stars | 1,000+ |
-| First enterprise / self-hosted customer | 1 |
+| Companies buying 5 or more Pro licences | 5 |
 
-Honest framing: with Pro alone, this is a side-income product, roughly $5–15k a year at these numbers. Real money depends on the **enterprise or events** segments. The plan is built to find out cheaply whether those segments exist before investing in them. See [`03-monetization.md`](03-monetization.md) for details.
+Honest framing: with Pro as the only paid tier, this is a side-income product at these numbers, roughly $5–15k a year. Revenue grows with the number of active presenters, so the plan puts its effort into free-tier reach and gates paid work on a Pro waitlist. See [`03-monetization.md`](03-monetization.md) for details.
