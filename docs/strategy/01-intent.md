@@ -1,6 +1,8 @@
 # DeckTap — Product Intent
 
-> Status: proposal · 2026-10-31 · owner: Miguel Silva
+> Status: proposal · 2026-10-31 · company: **Volaro.ai** · maintainer: Miguel Silva
+>
+> DeckTap is the product. Volaro.ai is the company that publishes it, sells the paid tiers and runs the relay. See [`05-volaro-transition.md`](05-volaro-transition.md).
 
 ## 1. What DeckTap is today
 
@@ -49,7 +51,7 @@ The intent has three parts:
 2. **The crypto stays auditable.** Paid features must never route plaintext through DeckTap servers. Anything hosted, such as the relay, only ever sees ciphertext.
 3. **No accounts required for the free tier.** Paid licences use offline-verifiable keys, so nobody needs an account just to present.
 4. **Telemetry is opt-in only,** documented, and contains no content.
-5. **Brand discipline:** "DeckTap" everywhere, and the name and logo are trademarked so forks must rebrand.
+5. **Brand discipline:** "DeckTap" is the product name everywhere. Volaro.ai appears only as the publisher ("DeckTap by Volaro.ai"). Volaro.ai owns the trademark, so forks must rebrand.
 
 ## 6. What success looks like (12 months)
 
