@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -64,6 +65,7 @@ type Service struct {
 	relaunch       func() error
 	replaceBinary  func(string, []byte) error
 	onRestart      func() error
+	publicKey      ed25519.PublicKey // nil: self-update disabled
 
 	mu           sync.RWMutex
 	status       Status
@@ -71,6 +73,7 @@ type Service struct {
 	cachedETag   string
 	updateAsset  Asset
 	checksumsURL string
+	signatureURL string
 }
 
 // OpenURL opens the specified URL in the system default web browser.
@@ -92,12 +95,14 @@ func NewService(currentVersion string, openURL func(string) error) *Service {
 	if openURL == nil {
 		openURL = OpenURL
 	}
+	pub, _ := ParsePublicKey(ReleasePublicKey) // empty or invalid: self-update stays disabled
 	return &Service{
 		owner:          DefaultRepoOwner,
 		repo:           DefaultRepoName,
 		currentVersion: currentVersion,
 		client:         &http.Client{Timeout: 15 * time.Second},
 		openURL:        openURL,
+		publicKey:      pub,
 		status: Status{
 			CurrentVer: currentVersion,
 			State:      "idle",
@@ -184,11 +189,13 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 		return s.recordError(err)
 	}
 
-	var checksumsURL string
+	var checksumsURL, signatureURL string
 	for _, a := range rel.Assets {
-		if strings.EqualFold(a.Name, "checksums.txt") {
+		switch {
+		case strings.EqualFold(a.Name, ChecksumsAssetName):
 			checksumsURL = a.BrowserDownloadURL
-			break
+		case strings.EqualFold(a.Name, SignatureAssetName):
+			signatureURL = a.BrowserDownloadURL
 		}
 	}
 
@@ -219,6 +226,7 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 		s.updateAsset = matchedAsset
 	}
 	s.checksumsURL = checksumsURL
+	s.signatureURL = signatureURL
 
 	st := Status{
 		Checked:      true,

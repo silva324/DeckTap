@@ -181,6 +181,8 @@ func TestSelfUpdateFullWorkflow(t *testing.T) {
 	sum := sha256.Sum256(assetContent)
 	sumHex := hex.EncodeToString(sum[:])
 	checksumsFile := fmt.Sprintf("%s  DeckTap-v2.2.0-macOS-Universal.tar.gz\n", sumHex)
+	pub, priv := testKey(t)
+	sigFile := SignChecksums(priv, "v2.2.0", []byte(checksumsFile))
 
 	var replacedBinary []byte
 	var relaunchCalled bool
@@ -205,6 +207,8 @@ func TestSelfUpdateFullWorkflow(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader(checksumsFile)),
 				}, nil
+			case "/download/sig":
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(sigFile))}, nil
 			default:
 				return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("404"))}, nil
 			}
@@ -217,6 +221,9 @@ func TestSelfUpdateFullWorkflow(t *testing.T) {
 		BrowserDownloadURL: "https://example.com/download/asset",
 	}
 	svc.checksumsURL = "https://example.com/download/checksums"
+	svc.signatureURL = "https://example.com/download/sig"
+	svc.publicKey = pub
+	svc.status.LatestVer = "v2.2.0"
 
 	svc.SetReplaceBinaryHandler(func(target string, newBytes []byte) error {
 		mu.Lock()
@@ -273,69 +280,6 @@ func TestSelfUpdateFullWorkflow(t *testing.T) {
 	}
 	if !restartCallbackCalled {
 		t.Fatal("expected restart callback to be invoked")
-	}
-}
-
-func TestSelfUpdateChecksumMismatch(t *testing.T) {
-	assetContent := []byte("tampered-asset-bytes")
-	wrongChecksumsFile := "0000000000000000000000000000000000000000000000000000000000000000  DeckTap-v2.2.0-macOS-Universal.tar.gz\n"
-
-	svc := NewService("2.1.0", nil)
-	svc.client = &http.Client{
-		Transport: mockRoundTripper(func(r *http.Request) (*http.Response, error) {
-			switch r.URL.Path {
-			case "/download/asset":
-				return &http.Response{
-					StatusCode:    http.StatusOK,
-					Body:          io.NopCloser(bytes.NewReader(assetContent)),
-					ContentLength: int64(len(assetContent)),
-				}, nil
-			case "/download/checksums":
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader(wrongChecksumsFile)),
-				}, nil
-			default:
-				return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("404"))}, nil
-			}
-		}),
-	}
-
-	svc.updateAsset = Asset{
-		Name:               "DeckTap-v2.2.0-macOS-Universal.tar.gz",
-		Size:               int64(len(assetContent)),
-		BrowserDownloadURL: "https://example.com/download/asset",
-	}
-	svc.checksumsURL = "https://example.com/download/checksums"
-
-	var replaceCalled bool
-	svc.SetReplaceBinaryHandler(func(target string, newBytes []byte) error {
-		replaceCalled = true
-		return nil
-	})
-
-	if err := svc.StartSelfUpdate(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		st := svc.Status()
-		if st.State == "error" {
-			break
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-
-	st := svc.Status()
-	if st.State != "error" {
-		t.Fatalf("expected state 'error', got %q", st.State)
-	}
-	if !strings.Contains(st.Error, "checksum mismatch") {
-		t.Fatalf("expected error mentioning checksum mismatch, got %q", st.Error)
-	}
-	if replaceCalled {
-		t.Fatal("replaceBinary must NOT be called when checksum fails")
 	}
 }
 

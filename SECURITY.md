@@ -9,6 +9,7 @@ DeckTap is built on a **Zero-Trust, End-to-End Encryption (E2EE)** model:
 3. **Anti-Shoulder-Surfing PIN Verification:** The URI fragment contains the master key ($K_{enc}$) and an ephemeral pairing token ($T_{pair}$). To prevent an audience member or remote viewer from pairing if they photograph the QR code from the presenter's laptop screen, the mobile app requires entering a 4-digit numeric visual PIN. The host enforces constant-time comparison and locks out after 5 consecutive failed attempts.
 4. **Replay & Hijack Defense:** Monotonically increasing sequence counters (`seq`) and per-session tokens ($S_{id}$) are verified on every inbound frame. Captured frames cannot be replayed.
 5. **No External JS Build Pipeline:** Static assets are served directly from embedded Go binaries without dynamic remote script CDNs (`unpkg`, `cdnjs`), ensuring no supply-chain tampering.
+6. **Signed Self-Updates:** The in-app updater only installs releases whose `checksums.txt` carries a valid Ed25519 signature from the release key embedded in the binary, bound to the release tag. Missing or invalid signatures abort the update. See [Release Signing](docs/release-signing.md).
 
 ---
 
