@@ -35,8 +35,8 @@ Phase 4  Team / Enterprise        ongoing
 | PR / task | Done when |
 |---|---|
 | Volaro.ai company setup: copyright assignment, D-U-N-S, Apple Developer **Organization**, transfer to [`volaroai`](https://github.com/volaroai) per the runbook ([`05`](05-volaro-transition.md) §2, §5, §6) | Assignment signed. Repo is `volaroai/DeckTap`. Apple and Windows signing identities issued in Volaro.ai's name. |
-| Register `decktap.app` and file the trademark in Volaro.ai's name | Domain live. Trademark filing submitted (EUIPO/UKIPO, then USPTO). |
-| `feat(webui): serve PWA from decktap.app with protected deploys` (P1-4) | Pages deploys need a protected-environment approval. Strict CSP. The old origin redirects. `allowedOrigin` is updated. |
+| Delegate the `decktap.volaro.ai` DNS zone ([`05`](05-volaro-transition.md) §4) and file the trademark in Volaro.ai's name | Zone delegated and DNSSEC on. Trademark filing submitted (EUIPO/UKIPO, then USPTO). |
+| `feat(webui): serve PWA from decktap.volaro.ai with protected deploys` (P1-4) | Pages deploys need a protected-environment approval. Strict CSP. `allowedOrigin` accepts only the new origin (no users yet, so no grace period). |
 | `chore(release): Developer ID signing + notarization` (P0-3) | `spctl -a -vv DeckTap.app` reports accepted. The Gatekeeper workaround is gone from the README. |
 | `chore(release): Windows Authenticode signing` | Azure Trusted Signing or an OV certificate in Volaro.ai's name. (SignPath's free OSS program is unlikely to fit a commercially sold product.) SmartScreen stops warning after reputation builds. |
 | `feat(updater): bundle-level macOS updates` | The update replaces the whole signed `.app` (or defers to `brew upgrade`). The signature stays valid after updating. |
@@ -51,7 +51,7 @@ Phase 4  Team / Enterprise        ongoing
 A **blind rendezvous relay** that forwards opaque frames between the host and the phone. It never sees keys or plaintext, so the zero-trust model is unchanged.
 
 ```
- phone ──wss://relay.decktap.app/r/<roomId>──┐        ┌── host (outbound only, 443)
+ phone ──wss://relay.decktap.volaro.ai/r/<roomId>──┐        ┌── host (outbound only, 443)
                                              ▼        ▼
                               Durable Object per room: pipe ciphertext, enforce quotas
 ```
@@ -67,7 +67,7 @@ A **blind rendezvous relay** that forwards opaque frames between the host and th
 | `feat(relay): Worker + Durable Object blind relay` | Load test with 1,000 concurrent rooms. p99 added latency under 80 ms in-region. |
 | `feat(tunnel): relay transport with automatic fallback` | Works behind a proxy that blocks `trycloudflare.com`. Integration test included. |
 | `feat(relay): self-hosting image + docs` | `docker run decktap/relay` plus a `-relay-url` flag. |
-| `feat(lan): HTTPS LAN mode via per-device certs` (P0-6 mid term) | Plex-style `*.lan.decktap.app` with DNS-01 certificates. The pure-JS AES engine is deleted. |
+| `feat(lan): HTTPS LAN mode via per-device certs` (P0-6 mid term) | Plex-style `*.lan.decktap.volaro.ai` with DNS-01 certificates. The pure-JS AES engine is deleted. |
 
 ## Phase 3: Pro and licensing (after Gate A)
 
@@ -94,5 +94,5 @@ A **blind rendezvous relay** that forwards opaque frames between the host and th
 
 1. ~~Fix **P0-1** (lockout DoS).~~ Done in #56.
 2. ~~Delete the dead packages and rename the module.~~ Done in #57; the `volaroai` module path follow-up comes with the transfer (Phase 0).
-3. Start the Volaro.ai items with lead times: copyright assignment, D-U-N-S, then Apple Developer *Organization* and Windows signing in the company's name, plus the `decktap.app` domain.
+3. Start the Volaro.ai items with lead times: copyright assignment, D-U-N-S, then Apple Developer *Organization* and Windows signing in the company's name, plus delegating the `decktap.volaro.ai` DNS zone.
 4. Put up a one-page landing site with a Pro waitlist so Gate A starts collecting data while Phases 0 and 1 are under way.

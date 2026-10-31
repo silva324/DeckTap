@@ -38,8 +38,8 @@ With no installed base, renaming identifiers costs nothing today. Once there are
 | Identifier | Current value | Final value | Note |
 |---|---|---|---|
 | GitHub repo | `silva324/DeckTap` | `volaroai/DeckTap` | Transfer it. GitHub redirects repo, git and API URLs, but **not** GitHub Pages. With no users, the PWA URL just changes with everything else. |
-| Go module path | `github.com/silva324/DeckTap` | `github.com/volaroai/DeckTap` | No domain needed. Choose a vanity path (`decktap.app`) only if that domain is registered *before* this change, so it's renamed once. |
-| PWA origin (`app.DefaultPWAURL`, `allowedOrigin`) | `https://silva324.github.io/DeckTap/` | `https://volaroai.github.io/DeckTap/` now, then `https://decktap.app/` | Drop the old origin entirely; nobody has the old PWA installed. Moving to `decktap.app` later *will* need a grace period if users exist by then, so move it before launch if you can. |
+| Go module path | `github.com/silva324/DeckTap` | `github.com/volaroai/DeckTap` | No vanity path. The org is the long-term home. |
+| PWA origin (`app.DefaultPWAURL`, `allowedOrigin`) | `https://silva324.github.io/DeckTap/` | **`https://decktap.volaro.ai/`**, set directly with no interim origin | Drop the old origin entirely; nobody has the old PWA installed. Set up DNS (§4) *before* the move PR, so the first release ships the final origin. |
 | macOS bundle ID | `com.silva324.decktap` | `ai.volaro.decktap` | Changing it later would make every user re-approve *Automation → PowerPoint*. Now it's free. |
 | Windows installer `AppId` | `{D37F2C0B-…}` | Keep it | It's a random GUID with no owner name in it. **Freeze it from the first public release.** Changing it after that leaves two copies installed. |
 | Installer publisher | "Miguel Silva and contributors" | `Volaro.ai` | Must match the code-signing certificate subject. |
@@ -51,10 +51,30 @@ With no installed base, renaming identifiers costs nothing today. Once there are
 
 ## 4. Domains
 
-- **`decktap.app` is the product** (landing, docs, PWA, pricing). `relay.decktap.app` hosts the relay and `lan.decktap.app` the future LAN certificates.
-- **`volaro.ai` is the company:** legal pages, about, security contact, and enterprise sales (`sales@volaro.ai`).
-- Why a separate registrable domain rather than `decktap.volaro.ai`? The PWA origin is a security boundary, and keeping it apart from the company's other web properties limits how far a compromise can spread (shared DNS, cookies, deploy tooling). It also leaves the product easy to spin out or sell.
-- **Register `decktap.app` before launch** so the PWA moves to its final origin while nobody depends on the interim one.
+DeckTap lives under the company domain, as **`decktap.volaro.ai`**, in its **own delegated DNS zone**.
+
+| Hostname | Purpose |
+|---|---|
+| `decktap.volaro.ai` | PWA (the security anchor for key-handling JavaScript), landing page, docs, pricing |
+| `relay.decktap.volaro.ai` | DeckTap Relay (Phase 2) |
+| `<ip-dashed>.<device-id>.lan.decktap.volaro.ai` | Per-device LAN certificates (Phase 2, P0-6) |
+| `volaro.ai` | Company site, legal pages, `security@` and `sales@volaro.ai` |
+
+**Why a subdomain works.** Browsers isolate by exact hostname, so other `volaro.ai` sites can't read the PWA's scripts or its `localStorage` session tokens. The usual risk of sharing a parent domain is cookie injection from sibling subdomains, and that doesn't apply because the PWA uses no cookies (authentication is the E2EE handshake). Business buyers also see the vendor's domain, and there's no extra domain to renew.
+
+**Required setup:**
+
+1. **Delegate the zone.** Add `NS` records for `decktap.volaro.ai` in the `volaro.ai` zone, pointing to a separate DNS zone with its own account and access. DeckTap's automation (DNS-01 certificates for LAN mode, relay hostnames) can then write DNS without any access to the company's main zone, and the people who manage `volaro.ai` for the website or email can't accidentally change the PWA's records.
+2. **Harden the parent.**
+   - registrar lock and 2FA on the registrar account
+   - DNSSEC on `volaro.ai`, with the DS record for the delegated zone
+   - a CAA record limiting which certificate authorities can issue for the domain
+   - regular cleanup of dangling CNAMEs
+3. **Verify `volaro.ai` in the `volaroai` GitHub org** (Settings, Pages, Verified domains) *before* pointing `decktap.volaro.ai` at Pages, so nobody else can claim the hostname on GitHub.
+4. **Check the relay's DNS needs.** Custom hostnames for Cloudflare Workers normally need the zone that holds them to be on Cloudflare, so choose where the delegated `decktap.volaro.ai` zone lives with that in mind, and check what your Cloudflare plan allows.
+5. **Optional:** register `decktap.app` cheaply, purely as a redirect to the landing page, so nobody else takes it. It is never a PWA origin.
+
+**Trade-off accepted:** if DeckTap were ever sold or spun out, its PWA origin would sit under the company domain. You'd keep delegating the zone to the new owner, or migrate the origin with a grace period.
 
 ## 5. Accounts with lead times (start now)
 
@@ -68,10 +88,11 @@ With no installed base, renaming identifiers costs nothing today. Once there are
 
 ## 6. Moving to `volaroai`: one step, no migration
 
-1. **Transfer** `silva324/DeckTap` to `volaroai/DeckTap` (Settings, Danger Zone, Transfer; your account is an org admin). Enable Pages on the org repo.
-2. **Open one PR,** `chore(repo): move DeckTap to volaroai`, that applies every value in §3:
+1. **Set up DNS first (§4):** delegate `decktap.volaro.ai` and verify `volaro.ai` in the GitHub org.
+2. **Transfer** `silva324/DeckTap` to `volaroai/DeckTap` (Settings, Danger Zone, Transfer; your account is an org admin). Enable Pages on the org repo with the custom domain `decktap.volaro.ai` and enforce HTTPS.
+3. **Open one PR,** `chore(repo): move DeckTap to volaroai`, that applies every value in §3:
    - module path
-   - `DefaultPWAURL` and `allowedOrigin` (new origin only, with tests updated)
+   - `DefaultPWAURL` and `allowedOrigin` set to `https://decktap.volaro.ai` only, with tests updated
    - bundle ID
    - installer publisher
    - README, CONTRIBUTING and issue-template URLs
@@ -79,8 +100,8 @@ With no installed base, renaming identifiers costs nothing today. Once there are
    - `FUNDING.yml`
    - Homebrew tap scripts
    - any hard-coded `silva324` paths in the release workflows
-3. **Cut the next release** from the org repo, and archive `silva324/homebrew-tap`.
-4. After the copyright assignment is signed: `docs(legal): assign copyright to Volaro.ai, add TRADEMARK.md, update SECURITY.md contact`.
-5. With the first signed release (Phase 1): sign as Volaro.ai and show "DeckTap by Volaro.ai" in the About and footer, linking to `decktap.app` instead of GitHub.
+4. **Cut the next release** from the org repo, and archive `silva324/homebrew-tap`.
+5. After the copyright assignment is signed: `docs(legal): assign copyright to Volaro.ai, add TRADEMARK.md, update SECURITY.md contact`.
+6. With the first signed release (Phase 1): sign as Volaro.ai and show "DeckTap by Volaro.ai" in the About and footer, linking to `decktap.volaro.ai` instead of GitHub.
 
 From the first public release on, treat the §3 values as **frozen**. Any later change needs a migration plan.
