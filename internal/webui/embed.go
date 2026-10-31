@@ -34,7 +34,7 @@ func Handler() http.Handler {
 		}
 		h := w.Header()
 		h.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; "+
-			"connect-src 'self' wss: ws:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+			"connect-src 'self' wss: ws:; manifest-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
@@ -49,4 +49,20 @@ func Handler() http.Handler {
 		}
 		w.Write(data)
 	})
+}
+
+// IconSVG returns the DeckTap app icon, shared with the desktop pairing window.
+func IconSVG() []byte {
+	b, _ := files.ReadFile("static/icon.svg")
+	return b
+}
+
+// Font returns an embedded web font (fonts/<name>.woff2), shared with the desktop
+// pairing window so both surfaces use the same typefaces without a CDN.
+func Font(name string) ([]byte, bool) {
+	if path.Base(name) != name || path.Ext(name) != ".woff2" {
+		return nil, false
+	}
+	b, err := files.ReadFile("static/fonts/" + name)
+	return b, err == nil
 }

@@ -475,27 +475,27 @@ func (h *Host) Snapshot() Snapshot {
 func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	switch {
 	case s.Session.State == session.LockedOut || s.TunnelState == TunnelLocked:
-		headline, problem = "Connection paused: multiple incorrect PIN attempts. Click 'New Pairing Code' to resume.", true
+		headline, problem = "Paused after too many wrong PINs. Choose New code to start again.", true
 	case s.Mode == ModeLAN:
-		headline = "Ready · Local Wi-Fi (offline)"
+		headline = "Ready on your Wi-Fi"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelStarting:
-		headline = "Preparing secure connection…"
+		headline = "Getting a secure connection ready…"
 	case s.Mode == ModeTunnel && s.TunnelState == TunnelFailed:
-		headline, problem = "Connection issue: "+s.TunnelError, true
+		headline, problem = "Can't reach the internet tunnel. Retrying…", true
 	case s.Mode == ModeTunnel:
-		headline = "Ready to connect"
+		headline = "Ready to pair"
 	default:
-		headline = "Ready · local test mode"
+		headline = "Ready · test mode on this computer"
 	}
 	switch {
 	case s.Session.State == session.Unpaired:
 		if s.Mode == ModeLAN {
-			phone = "Connect phone to same Wi-Fi & scan QR"
+			phone = "Join the same Wi-Fi, then scan the code"
 		} else {
-			phone = "Scan QR code with your phone"
+			phone = "Scan the code with your phone"
 		}
 	case s.Session.Connected:
-		phone = "Phone connected 🔒"
+		phone = "Phone connected"
 	case s.Session.State == session.Paired:
 		phone = "Phone paired, reconnecting…"
 	default:
@@ -503,13 +503,13 @@ func (s Snapshot) Describe() (headline, phone, show string, problem bool) {
 	}
 	switch {
 	case !s.Show.AppRunning:
-		show = "PowerPoint not detected"
+		show = "PowerPoint isn't open"
 	case s.Show.DeckName == "":
 		show = "No presentation open"
 	case s.Show.Presenting:
 		show = fmt.Sprintf("Slide %d of %d · %s", s.Show.Slide, s.Show.Total, s.Show.DeckName)
 	default:
-		show = fmt.Sprintf("%s (%d slides ready)", s.Show.DeckName, s.Show.Total)
+		show = fmt.Sprintf("%s · %d slides", s.Show.DeckName, s.Show.Total)
 	}
 	return
 }
@@ -536,7 +536,7 @@ func (h *Host) adminView() admin.View {
 		v.PublicHost = strings.TrimPrefix(s.PublicURL, "https://")
 	}
 	if s.Session.State == session.Paired {
-		v.Detail = phone + " · " + show + " · Remote control is active"
+		v.Detail = show
 	}
 	return v
 }

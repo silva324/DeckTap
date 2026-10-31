@@ -108,3 +108,34 @@ func TestAdminPageGuarded(t *testing.T) {
 		t.Fatalf("deck/reload endpoint failed: reloaded=%v, err=%v", reloaded, err)
 	}
 }
+
+func TestFontsServedBehindSecret(t *testing.T) {
+	s, err := Start(func() View { return View{} }, func() {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	resp, err := http.Get(s.URL() + "fonts/outfit-latin.woff2")
+	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("skipping live socket test: network dial not permitted in sandbox: %v", err)
+		}
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "font/woff2" || !strings.HasPrefix(string(body), "wOF2") {
+		t.Fatalf("font: %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	base := s.URL()[:strings.Index(s.URL()[7:], "/")+7]
+	for _, path := range []string{
+		base + "/fonts/outfit-latin.woff2",       // no path secret
+		s.URL() + "fonts/OFL-Outfit.txt",         // not a font
+		s.URL() + "fonts/..%2Findex.html",        // traversal
+		s.URL() + "fonts/../fonts/missing.woff2", // unknown
+	} {
+		if r, _ := http.Get(path); r.StatusCode != 404 {
+			t.Errorf("%s: got %d, want 404", path, r.StatusCode)
+		}
+	}
+}

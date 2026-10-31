@@ -13,7 +13,7 @@ func TestReadDemo(t *testing.T) {
 	if len(slides) != 5 {
 		t.Fatalf("got %d slides", len(slides))
 	}
-	if slides[0].Title != "Welcome to SlideCue" {
+	if slides[0].Title != "Welcome to DeckTap" {
 		t.Fatalf("title %q", slides[0].Title)
 	}
 	if !strings.Contains(slides[0].Notes, "Swipe left") || !strings.Contains(slides[0].Notes, "\n") {

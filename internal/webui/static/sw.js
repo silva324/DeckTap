@@ -1,5 +1,5 @@
 /* DeckTap Service Worker – PWA offline caching, resilient recovery & installability */
-const CACHE_NAME = "decktap-v2.10";
+const CACHE_NAME = "decktap-v3.0";
 const ASSETS = [
   "./",
   "index.html",
@@ -8,7 +8,9 @@ const ASSETS = [
   "app.js",
   "crypto.js",
   "icon.svg",
-  "manifest.webmanifest"
+  "manifest.webmanifest",
+  "fonts/outfit-latin.woff2",
+  "fonts/dm-mono-400-latin.woff2"
 ];
 
 self.addEventListener("install", (e) => {
