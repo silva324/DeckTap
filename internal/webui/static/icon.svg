@@ -1,8 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <title>DeckTap</title>
+  <!-- Keep in sync with cmd/make-icon, which renders the native app and tray icons. -->
   <rect width="512" height="512" rx="112" fill="#0b1422"/>
+  <circle cx="326" cy="300" r="66" fill="none" stroke="#ff9b80" stroke-width="10" stroke-opacity=".45"/>
   <rect x="124" y="148" width="264" height="176" rx="22" fill="none" stroke="#f2f5fa" stroke-width="18"/>
   <path d="M172 210h104M172 250h64" stroke="#a9b8cc" stroke-width="14" stroke-linecap="round"/>
-  <circle cx="326" cy="300" r="62" fill="none" stroke="#ff9b80" stroke-width="10" stroke-opacity=".45"/>
+  <circle cx="326" cy="300" r="48" fill="#0b1422"/>
   <circle cx="326" cy="300" r="32" fill="#ff9b80"/>
 </svg>

@@ -15,12 +15,11 @@ TAR_NAME="DeckTap-${VERSION}-macOS-Universal.tar.gz"
 echo "==> Building ${APP_NAME} ${VERSION} for macOS (Universal)..."
 mkdir -p "${DIST_DIR}" build
 
-# 1. Generate icon.icns if missing
-if [[ ! -f "build/icon.icns" ]]; then
-    echo "==> Generating icon.icns..."
-    go run ./cmd/make-icon build/icon.iconset
-    iconutil -c icns build/icon.iconset -o build/icon.icns
-fi
+# 1. Generate icon.icns from cmd/make-icon (always, so a stale local icon never ships)
+echo "==> Generating icon.icns..."
+rm -rf build/icon.iconset
+go run ./cmd/make-icon build/icon.iconset
+iconutil -c icns build/icon.iconset -o build/icon.icns
 
 # 2. Build binaries (arm64 + amd64)
 echo "==> Compiling darwin/arm64..."
