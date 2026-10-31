@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.11.2](https://github.com/silva324/DeckTap/compare/v0.11.1...v0.11.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* **session:** never let pre-auth failures lock out or evict the paired phone ([#56](https://github.com/silva324/DeckTap/issues/56)) ([8f669d2](https://github.com/silva324/DeckTap/commit/8f669d21c2152ecfb504c9240297414c9e88c695))
+
+
+### Documentation
+
+* **strategy:** add product intent, production review, monetization model and plan ([#55](https://github.com/silva324/DeckTap/issues/55)) ([662cbee](https://github.com/silva324/DeckTap/commit/662cbee7bb8ee006cd4a3a90ef661380ff539a31))
+* **strategy:** make Volaro.ai the company behind DeckTap ([#59](https://github.com/silva324/DeckTap/issues/59)) ([b1cfcfa](https://github.com/silva324/DeckTap/commit/b1cfcfab6ebd1652216c9e60a2690358d493ced4))
+
+
+### Miscellaneous Chores
+
+* **repo:** remove dead packages and rename module to github.com/silva324/DeckTap ([#57](https://github.com/silva324/DeckTap/issues/57)) ([0cea4da](https://github.com/silva324/DeckTap/commit/0cea4da403887fc618e540070581851d083d587b))
+
 ## [0.11.1](https://github.com/silva324/DeckTap/compare/v0.11.0...v0.11.1) (2026-10-22)
 
 
