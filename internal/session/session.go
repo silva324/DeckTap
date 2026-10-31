@@ -2,7 +2,7 @@
 //
 //	UNPAIRED ──AUTH_HELLO(valid token)──▶ PAIRED(LOCKED) ──AUTH_RESUME(valid sid)──▶ PAIRED (sid rotated)
 //	    ▲                                     │
-//	    └──────────── Reset() ◀───────────────┘          any state ──N failures──▶ LOCKED_OUT
+//	    └──────────── Reset() ◀───────────────┘          UNPAIRED ──N failures──▶ LOCKED_OUT
 //
 // Rules implemented:
 //   - Pairing token is single-use: burned on the first successful AUTH_HELLO.
@@ -12,8 +12,12 @@
 //     increasing sequence number per direction for the whole session (across reconnects),
 //     so captured frames cannot be replayed.
 //   - The first frame must arrive within AuthTimeout (3 s). GCM/auth/replay failures close
-//     the socket with 1008 and count towards MaxFailures; reaching it locks the hub out and
-//     fires OnLockout (the app then destroys the tunnel).
+//     the socket with 1008.
+//   - Only failed pairing attempts by a key holder (bad token/PIN, replayed or out-of-state
+//     handshake while UNPAIRED) count towards MaxFailures; reaching it locks the hub out and
+//     fires OnLockout (the app then destroys the tunnel). Undecryptable frames prove nothing
+//     (there is no key to guess) and failures while PAIRED cannot advance an attacker (the
+//     SessionID is 128-bit), so neither may lock out or evict the presenter's phone.
 package session
 
 import (
@@ -65,7 +69,7 @@ type Options struct {
 	AuthTimeout  time.Duration // default 3s
 	IdleTimeout  time.Duration // default 60s; client sends PING every ~20s
 	PingInterval time.Duration // default 15s (WebSocket ping, keeps proxies alive)
-	MaxFailures  int           // default 5
+	MaxFailures  int           // failed pairing attempts by a key holder before lockout, default 5
 	MaxPending   int           // concurrent unauthenticated sockets, default 4
 
 	// AllowedOrigin reports whether a browser Origin may open /ws (CSWSH defence).
@@ -98,7 +102,8 @@ type Hub struct {
 	lastClientSeq uint64
 	hostSeq       uint64
 	active        *client
-	failures      int
+	failures      int // counts towards MaxFailures
+	rejected      int // every connection closed with 1008 (diagnostics)
 	pending       int
 	epoch         uint64
 	lastSeen      time.Time
@@ -110,7 +115,8 @@ type Hub struct {
 type Status struct {
 	State     State
 	Connected bool
-	Failures  int
+	Failures  int // failed pairing attempts counting towards lockout
+	Rejected  int // all connections rejected for security reasons
 	LastSeen  time.Time
 }
 
@@ -183,7 +189,7 @@ func (h *Hub) Fragment() string {
 func (h *Hub) Status() Status {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return Status{State: h.state, Connected: h.active != nil, Failures: h.failures, LastSeen: h.lastSeen}
+	return Status{State: h.state, Connected: h.active != nil, Failures: h.failures, Rejected: h.rejected, LastSeen: h.lastSeen}
 }
 
 // Reset is the "hard reset": kicks the client and rotates token, key and session.
@@ -330,12 +336,12 @@ func (h *Hub) authenticate(conn *ws.Conn) (*client, bool) {
 
 	pt, err := c.OpenFrame(e2ee.ClientToHost, data, op == ws.OpBinary)
 	if err != nil {
-		h.fail(conn, "handshake decryption failed")
+		h.reject(conn, "handshake decryption failed", 0)
 		return nil, false
 	}
 	var f authFrame
 	if json.Unmarshal(pt, &f) != nil {
-		h.fail(conn, "handshake malformed")
+		h.reject(conn, "handshake malformed", 0)
 		return nil, false
 	}
 
@@ -375,7 +381,11 @@ func (h *Hub) authenticate(conn *ws.Conn) (*client, bool) {
 	}
 	if reason != "" {
 		h.mu.Unlock()
-		h.fail(conn, reason)
+		var lockoutEpoch uint64
+		if state == Unpaired {
+			lockoutEpoch = epoch // the sender decrypted the frame: it holds the QR key
+		}
+		h.reject(conn, reason, lockoutEpoch)
 		return nil, false
 	}
 	if state == Unpaired {
@@ -451,12 +461,12 @@ func (h *Hub) serve(cl *client) {
 		h.mu.Unlock()
 		pt, err := c.OpenFrame(e2ee.ClientToHost, data, op == ws.OpBinary)
 		if err != nil {
-			h.fail(cl.conn, "frame decryption failed")
+			h.reject(cl.conn, "frame decryption failed", 0)
 			return
 		}
 		var f commandFrame
 		if json.Unmarshal(pt, &f) != nil {
-			h.fail(cl.conn, "frame malformed")
+			h.reject(cl.conn, "frame malformed", 0)
 			return
 		}
 		h.mu.Lock()
@@ -468,7 +478,7 @@ func (h *Hub) serve(cl *client) {
 		}
 		h.mu.Unlock()
 		if !valid {
-			h.fail(cl.conn, "bad sid or replayed seq")
+			h.reject(cl.conn, "bad sid or replayed seq", 0)
 			return
 		}
 		if f.Action == "PING" {
@@ -489,26 +499,26 @@ func (h *Hub) serve(cl *client) {
 	}
 }
 
-// fail closes conn with 1008 and counts the failure; MaxFailures triggers lockout.
-func (h *Hub) fail(conn *ws.Conn, reason string) {
+// reject closes conn with 1008. lockoutEpoch is the hub epoch of a failed pairing attempt
+// by a key holder, or 0 when the failure must not count towards MaxFailures (see the
+// package doc). Lockout is only reachable while UNPAIRED, where there is no client to evict.
+func (h *Hub) reject(conn *ws.Conn, reason string, lockoutEpoch uint64) {
 	h.mu.Lock()
-	h.failures++
+	h.rejected++
+	counted := lockoutEpoch != 0 && lockoutEpoch == h.epoch && h.state == Unpaired
+	if counted {
+		h.failures++
+	}
 	n := h.failures
-	locked := n >= h.opts.MaxFailures && h.state != LockedOut
-	var kicked *client
+	locked := counted && n >= h.opts.MaxFailures
 	if locked {
 		h.state = LockedOut
 		h.token = nil
-		kicked = h.active
-		h.active = nil
 	}
 	h.mu.Unlock()
-	h.opts.Logger.Warn("security: connection rejected", "reason", reason, "failures", n,
-		"remote", conn.RemoteAddr().String())
+	h.opts.Logger.Warn("security: connection rejected", "reason", reason, "counted", counted,
+		"failures", n, "remote", conn.RemoteAddr().String())
 	conn.CloseWith(ws.ClosePolicyViolation, "policy violation")
-	if kicked != nil {
-		kicked.conn.CloseWith(ws.ClosePolicyViolation, "locked out")
-	}
 	if locked {
 		h.opts.Logger.Error("security: too many failed attempts, locking out", "failures", n)
 		if h.opts.OnLockout != nil {

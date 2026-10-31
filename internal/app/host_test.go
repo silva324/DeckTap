@@ -67,7 +67,8 @@ type testPhone struct {
 	sid  string
 }
 
-func pair(t *testing.T, h *Host, origin string) *testPhone {
+// scan dials /ws holding the secrets of the current QR code, like a phone that scanned it.
+func scan(t *testing.T, h *Host, origin string) (p *testPhone, token string) {
 	t.Helper()
 	waitFor(t, "deck ready", func() bool { return h.Sync.Status().Total > 0 })
 	url := h.PairingURL()
@@ -95,8 +96,13 @@ func pair(t *testing.T, h *Host, origin string) *testPhone {
 		}
 		t.Fatal(err)
 	}
-	p := &testPhone{conn: conn, c: c}
-	p.send(t, map[string]any{"type": "AUTH_HELLO", "pairingToken": parts[0], "clientNonce": "abc", "pin": h.Snapshot().Pin})
+	return &testPhone{conn: conn, c: c}, parts[0]
+}
+
+func pair(t *testing.T, h *Host, origin string) *testPhone {
+	t.Helper()
+	p, token := scan(t, h, origin)
+	p.send(t, map[string]any{"type": "AUTH_HELLO", "pairingToken": token, "clientNonce": "abc", "pin": h.Snapshot().Pin})
 	m := p.recvType(t, "AUTH_OK")
 	p.sid = m["sessionId"].(string)
 	st := m["state"].(map[string]any)
@@ -218,17 +224,31 @@ func TestTunnelModeLockoutAndReset(t *testing.T) {
 		t.Fatal("foreign origin accepted")
 	}
 
-	// 5 attackers with a wrong key → lockout → tunnel destroyed
-	for i := 0; i < 5; i++ {
-		c, err := ws.Dial("ws://127.0.0.1:"+strconv.Itoa(h.Port())+"/ws", http.Header{"Origin": {public}})
+	// attackers without the key (any web page can use a "null" Origin) can neither lock
+	// out the host nor evict the paired phone
+	for i := 0; i < 10; i++ {
+		c, err := ws.Dial("ws://127.0.0.1:"+strconv.Itoa(h.Port())+"/ws", http.Header{"Origin": {"null"}})
 		if err != nil {
-			break // already locked
+			t.Fatal(err)
 		}
 		bad, _ := e2ee.NewCipher(e2ee.RandomBytes(32))
 		f, _ := bad.SealJSON(e2ee.ClientToHost, map[string]any{"type": "AUTH_RESUME", "seq": 99})
 		c.WriteText(f)
 		c.SetReadDeadline(time.Now().Add(2 * time.Second))
 		c.ReadMessage()
+	}
+	p.send(t, map[string]any{"action": "PING"})
+	p.recvType(t, "PONG")
+	if s := h.Snapshot(); s.Session.State != session.Paired || s.TunnelState != TunnelOnline {
+		t.Fatalf("garbage frames disturbed the session: %+v", s)
+	}
+
+	// 5 wrong PINs from someone who photographed the QR → lockout → tunnel destroyed
+	h.Reset()
+	for i := 0; i < 5; i++ {
+		q, token := scan(t, h, public)
+		q.send(t, map[string]any{"type": "AUTH_HELLO", "pairingToken": token, "clientNonce": "x", "pin": "no-pin"})
+		q.recvType(t, "AUTH_FAIL")
 	}
 	waitFor(t, "lockout", func() bool {
 		s := h.Snapshot()

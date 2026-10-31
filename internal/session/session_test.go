@@ -178,8 +178,8 @@ func TestReplayIsRejected(t *testing.T) {
 	if _, err := p.recv(); closeCode(err) != ws.ClosePolicyViolation {
 		t.Fatalf("replay must close with 1008, got %v", err)
 	}
-	if h.Status().Failures != 1 {
-		t.Fatal("replay must count as failure")
+	if st := h.Status(); st.Rejected != 1 || st.Failures != 0 || st.State != Paired {
+		t.Fatalf("replay must be rejected without counting towards lockout: %+v", st)
 	}
 }
 
@@ -216,17 +216,80 @@ func TestResumeRotatesSessionAndSupersedes(t *testing.T) {
 	}
 }
 
-func TestWrongKeyLockout(t *testing.T) {
+func bogusFragment() string {
+	return e2ee.B64.EncodeToString(e2ee.RandomBytes(16)) + "." + e2ee.B64.EncodeToString(e2ee.RandomBytes(32))
+}
+
+// badPIN sends AUTH_HELLO with the real key and token but a wrong PIN.
+func (p *phone) badPIN(t *testing.T) {
+	t.Helper()
+	pin := "0000"
+	if p.pin == pin {
+		pin = "1111"
+	}
+	p.seq++
+	p.send(map[string]any{"type": "AUTH_HELLO", "pairingToken": p.token, "clientNonce": "x", "seq": p.seq, "pin": pin})
+	if m, err := p.recv(); err != nil || m["type"] != "AUTH_FAIL" {
+		t.Fatalf("expected AUTH_FAIL, got %v %v", m, err)
+	}
+	if _, err := p.recv(); closeCode(err) != ws.ClosePolicyViolation {
+		t.Fatalf("expected 1008, got %v", err)
+	}
+}
+
+func TestWrongKeyNeverLocksOut(t *testing.T) {
 	var locked atomic.Bool
 	h, srv, _ := newHub(t, Options{OnLockout: func() { locked.Store(true) }})
-	bogus := e2ee.B64.EncodeToString(e2ee.RandomBytes(16)) + "." + e2ee.B64.EncodeToString(e2ee.RandomBytes(32))
+	for i := 0; i < 10; i++ {
+		dial(t, srv, h, bogusFragment()).hello2Fail(t)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if st := h.Status(); locked.Load() || st.State != Unpaired || h.Fragment() == "" || st.Failures != 0 || st.Rejected != 10 {
+		t.Fatalf("frames nobody could decrypt must not lock out pairing: %+v", st)
+	}
+	// the real phone still pairs afterwards
+	dial(t, srv, h, h.Fragment()).hello()
+}
+
+// Regression: anyone able to reach /ws (same Wi-Fi in LAN mode, a web page via a
+// "null" Origin in tunnel mode) could send garbage and evict the presenter's phone.
+func TestPreAuthFailuresNeverEvictPairedPhone(t *testing.T) {
+	var locked atomic.Bool
+	h, srv, cmds := newHub(t, Options{OnLockout: func() { locked.Store(true) }})
+	frag := h.Fragment()
+	p := dial(t, srv, h, frag)
+	p.hello()
+
+	for i := 0; i < 10; i++ {
+		dial(t, srv, h, bogusFragment()).hello2Fail(t) // no key
+		dial(t, srv, h, frag).hello2Fail(t)            // key, but the token is burned
+		q := dial(t, srv, h, frag)                     // key, guessed SessionID
+		q.seq = 1000 + uint64(i)
+		q.send(map[string]any{"type": "AUTH_RESUME", "sessionId": e2ee.B64.EncodeToString(e2ee.RandomBytes(16)), "seq": q.seq})
+		if _, err := q.recv(); closeCode(err) != ws.ClosePolicyViolation {
+			t.Fatalf("expected 1008, got %v", err)
+		}
+	}
+	if st := h.Status(); locked.Load() || st.State != Paired || !st.Connected || st.Failures != 0 {
+		t.Fatalf("paired phone must be unaffected: %+v", st)
+	}
+	p.seq++
+	p.send(map[string]any{"seq": p.seq, "sid": p.sid, "action": "NEXT"})
+	if c := <-cmds; c.Action != "NEXT" {
+		t.Fatal(c)
+	}
+}
+
+func TestWrongPINLockout(t *testing.T) {
+	var locked atomic.Bool
+	h, srv, _ := newHub(t, Options{OnLockout: func() { locked.Store(true) }})
+	frag := h.Fragment()
 	for i := 0; i < 5; i++ {
-		p := dial(t, srv, h, bogus)
-		p.hello2Fail(t)
+		dial(t, srv, h, frag).badPIN(t)
 	}
 	time.Sleep(50 * time.Millisecond)
 	if !locked.Load() || h.Status().State != LockedOut || h.Fragment() != "" {
-		t.Fatal("5 failures must lock out")
+		t.Fatal("5 wrong PINs must lock out")
 	}
 	resp, _ := http.Get(srv.URL + "/ws")
 	if resp.StatusCode != http.StatusForbidden {
