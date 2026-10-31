@@ -2,7 +2,7 @@
 
 package tray
 
-import "pptx-remote/internal/app"
+import "github.com/silva324/DeckTap/internal/app"
 
 func Supported() bool                                      { return false }
 func Quit()                                                {}

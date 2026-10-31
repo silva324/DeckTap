@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"pptx-remote/internal/admin"
-	"pptx-remote/internal/pointer"
-	"pptx-remote/internal/presenter"
-	"pptx-remote/internal/session"
-	"pptx-remote/internal/tunnel"
-	"pptx-remote/internal/updater"
-	"pptx-remote/internal/webui"
+	"github.com/silva324/DeckTap/internal/admin"
+	"github.com/silva324/DeckTap/internal/pointer"
+	"github.com/silva324/DeckTap/internal/presenter"
+	"github.com/silva324/DeckTap/internal/session"
+	"github.com/silva324/DeckTap/internal/tunnel"
+	"github.com/silva324/DeckTap/internal/updater"
+	"github.com/silva324/DeckTap/internal/webui"
 )
 
 type Mode string

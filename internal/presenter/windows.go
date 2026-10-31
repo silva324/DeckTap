@@ -17,8 +17,8 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"pptx-remote/internal/pptx"
-	"pptx-remote/internal/procutil"
+	"github.com/silva324/DeckTap/internal/pptx"
+	"github.com/silva324/DeckTap/internal/procutil"
 )
 
 //go:embed bridge.ps1

@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"pptx-remote/internal/e2ee"
-	"pptx-remote/internal/qr"
-	"pptx-remote/internal/updater"
+	"github.com/silva324/DeckTap/internal/e2ee"
+	"github.com/silva324/DeckTap/internal/qr"
+	"github.com/silva324/DeckTap/internal/updater"
 )
 
 // View is what the page shows.

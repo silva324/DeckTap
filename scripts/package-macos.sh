@@ -24,10 +24,10 @@ fi
 
 # 2. Build binaries (arm64 + amd64)
 echo "==> Compiling darwin/arm64..."
-CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/decktap-arm64" ./cmd/pptx-remote
+CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/decktap-arm64" ./cmd/decktap
 
 echo "==> Compiling darwin/amd64..."
-CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/decktap-amd64" ./cmd/pptx-remote
+CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildvcs=false -ldflags "-s -w -X main.version=${VERSION}" -o "build/decktap-amd64" ./cmd/decktap
 
 echo "==> Creating Universal Binary..."
 lipo -create -output "build/decktap-universal" "build/decktap-arm64" "build/decktap-amd64"

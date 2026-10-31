@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"pptx-remote/internal/pptx"
+	"github.com/silva324/DeckTap/internal/pptx"
 )
 
 // Demo is an in-memory controller backed by a .pptx file. Used for UI work, demos and tests.

@@ -110,7 +110,7 @@ cd DeckTap
 go test ./...
 
 # Build binary
-go build -o bin/decktap ./cmd/pptx-remote
+go build -o bin/decktap ./cmd/decktap
 ```
 
 ---

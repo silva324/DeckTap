@@ -10,20 +10,20 @@ build: build-darwin
 
 build-darwin:
 	@mkdir -p $(BUILD_DIR)
-	go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/pptx-remote
+	go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/decktap
 	@echo "Built $(BUILD_DIR)/$(BINARY_NAME) (macOS)"
 
 build-darwin-universal:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-arm64 ./cmd/pptx-remote
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-amd64 ./cmd/pptx-remote
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-arm64 ./cmd/decktap
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-amd64 ./cmd/decktap
 	lipo -create -output $(BUILD_DIR)/$(BINARY_NAME) $(BUILD_DIR)/$(BINARY_NAME)-arm64 $(BUILD_DIR)/$(BINARY_NAME)-amd64
 	@rm $(BUILD_DIR)/$(BINARY_NAME)-arm64 $(BUILD_DIR)/$(BINARY_NAME)-amd64
 	@echo "Built Universal Darwin Binary at $(BUILD_DIR)/$(BINARY_NAME)"
 
 build-windows:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -H=windowsgui -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME).exe ./cmd/pptx-remote
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -H=windowsgui -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME).exe ./cmd/decktap
 	@echo "Built $(BUILD_DIR)/$(BINARY_NAME).exe (Windows, GUI mode)"
 
 build-all: build-darwin-universal build-windows

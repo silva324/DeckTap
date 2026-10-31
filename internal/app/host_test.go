@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"pptx-remote/internal/e2ee"
-	"pptx-remote/internal/pptx"
-	"pptx-remote/internal/presenter"
-	"pptx-remote/internal/session"
-	"pptx-remote/internal/ws"
+	"github.com/silva324/DeckTap/internal/e2ee"
+	"github.com/silva324/DeckTap/internal/pptx"
+	"github.com/silva324/DeckTap/internal/presenter"
+	"github.com/silva324/DeckTap/internal/session"
+	"github.com/silva324/DeckTap/internal/ws"
 )
 
 const fakeCloudflared = `#!/bin/sh
