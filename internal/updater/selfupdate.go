@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -346,7 +347,12 @@ func (s *Service) StartSelfUpdate(ctx context.Context) error {
 		return fmt.Errorf("update already in progress")
 	}
 	asset := s.updateAsset
-	checksumsURL := s.checksumsURL
+	rel := signedRelease{
+		tag:          s.status.LatestVer,
+		checksumsURL: s.checksumsURL,
+		signatureURL: s.signatureURL,
+		publicKey:    s.publicKey,
+	}
 	s.status.State = "downloading"
 	s.status.Progress = 0
 	s.status.Error = ""
@@ -361,13 +367,32 @@ func (s *Service) StartSelfUpdate(ctx context.Context) error {
 		s.setError("no compatible update package found for this platform (assets may still be preparing)")
 		return s.OpenReleasePage()
 	}
+	if len(rel.publicKey) == 0 {
+		s.setError(ErrNoSigningKey.Error())
+		return s.OpenReleasePage()
+	}
 
-	go s.runSelfUpdate(ctx, asset, checksumsURL)
+	go s.runSelfUpdate(ctx, asset, rel)
 	return nil
 }
 
-func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL string) {
-	// 1. Download asset with progress reporting
+// signedRelease is what is needed to authenticate a release's packages.
+type signedRelease struct {
+	tag          string
+	checksumsURL string
+	signatureURL string
+	publicKey    ed25519.PublicKey
+}
+
+func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, rel signedRelease) {
+	// 1. Authenticate the release before downloading the package (fail closed)
+	expectedHex, err := s.signedChecksum(ctx, rel, asset.Name)
+	if err != nil {
+		s.setError(fmt.Sprintf("integrity verification failed: %v", err))
+		return
+	}
+
+	// 2. Download asset with progress reporting
 	tempFile, err := os.CreateTemp("", "decktap_asset_*")
 	if err != nil {
 		s.setError(fmt.Sprintf("failed to create temp file: %v", err))
@@ -440,16 +465,14 @@ func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL s
 	}
 	_ = tempFile.Close()
 
-	// 2. Verifying checksum
+	// 3. Verifying the package against the signed checksum
 	s.setState("verifying", 75)
-	if checksumsURL != "" {
-		if err := s.verifyChecksum(ctx, checksumsURL, asset.Name, hasher.Sum(nil)); err != nil {
-			s.setError(fmt.Sprintf("integrity verification failed: %v", err))
-			return
-		}
+	if actualHex := hex.EncodeToString(hasher.Sum(nil)); !strings.EqualFold(actualHex, expectedHex) {
+		s.setError(fmt.Sprintf("integrity verification failed: checksum mismatch (expected %s, got %s)", expectedHex, actualHex))
+		return
 	}
 
-	// 3. Extracting binary
+	// 4. Extracting binary
 	s.setState("applying", 85)
 	rawBytes, err := os.ReadFile(tempPath)
 	if err != nil {
@@ -474,13 +497,13 @@ func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL s
 		return
 	}
 
-	// 4. Validating executable binary before installation to protect against corrupted downloads
+	// 5. Validating executable binary before installation to protect against corrupted downloads
 	if vErr := ValidateExecutable(runtime.GOOS, extractedBinary); vErr != nil {
 		s.setError(fmt.Sprintf("binary validation failed: %v", vErr))
 		return
 	}
 
-	// 5. Replacing binary
+	// 6. Replacing binary
 	s.setProgress(92)
 	replaceFn := s.replaceBinary
 	if replaceFn == nil {
@@ -491,7 +514,7 @@ func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL s
 		return
 	}
 
-	// 6. Restarting
+	// 7. Restarting
 	s.setState("restarting", 100)
 
 	relaunchFn := s.relaunch
@@ -508,47 +531,62 @@ func (s *Service) runSelfUpdate(ctx context.Context, asset Asset, checksumsURL s
 	}
 }
 
-func (s *Service) verifyChecksum(ctx context.Context, checksumsURL, assetName string, actualSum []byte) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumsURL, nil)
+// maxManifestSize bounds checksums.txt and its signature.
+const maxManifestSize = 1 << 20
+
+// signedChecksum fetches checksums.txt and checksums.txt.sig, verifies the signature
+// for rel.tag and returns the SHA-256 listed for assetName. Every gap is an error: a
+// release without a valid signature, or an asset it does not list, is never installed.
+func (s *Service) signedChecksum(ctx context.Context, rel signedRelease, assetName string) (string, error) {
+	if rel.checksumsURL == "" || rel.signatureURL == "" {
+		return "", fmt.Errorf("release has no signed checksums (%s, %s)", ChecksumsAssetName, SignatureAssetName)
+	}
+	checksums, err := s.fetchManifest(ctx, rel.checksumsURL)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("%s: %w", ChecksumsAssetName, err)
+	}
+	sig, err := s.fetchManifest(ctx, rel.signatureURL)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", SignatureAssetName, err)
+	}
+	if err := VerifyChecksums(rel.publicKey, rel.tag, checksums, sig); err != nil {
+		return "", err
+	}
+
+	sums := ParseChecksums(string(checksums))
+	if v, ok := sums[assetName]; ok {
+		return v, nil
+	}
+	for k, v := range sums {
+		if strings.EqualFold(k, assetName) {
+			return v, nil
+		}
+	}
+	return "", fmt.Errorf("%s is not listed in the signed checksums", assetName)
+}
+
+func (s *Service) fetchManifest(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
 	}
 	req.Header.Set("User-Agent", fmt.Sprintf("DeckTap-Updater/%s", s.currentVersion))
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("checksums download returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("download returned status %d", resp.StatusCode)
 	}
-
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestSize+1))
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	sums := ParseChecksums(string(body))
-	expectedHex, exists := sums[assetName]
-	if !exists {
-		for k, v := range sums {
-			if strings.EqualFold(k, assetName) {
-				expectedHex = v
-				exists = true
-				break
-			}
-		}
+	if len(body) > maxManifestSize {
+		return nil, fmt.Errorf("larger than %d bytes", maxManifestSize)
 	}
-	if !exists {
-		return nil // asset not explicitly listed in checksums.txt, continue
-	}
-
-	actualHex := hex.EncodeToString(actualSum)
-	if !strings.EqualFold(actualHex, expectedHex) {
-		return fmt.Errorf("checksum mismatch (expected %s, got %s)", expectedHex, actualHex)
-	}
-	return nil
+	return body, nil
 }
 
 func (s *Service) setProgress(pct int) {
