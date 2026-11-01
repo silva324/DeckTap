@@ -9,8 +9,7 @@ Phase 1  Trustworthy distribution ~3 wk  ── signed, notarized, own domain, t
 Phase 2  DeckTap Relay            ~4 wk  ── reliable connectivity + first paid surface
    ▸ Gate A: waitlist ≥ 200 or ≥ 30 lifetime pre-sales
 Phase 3  Pro + licensing          ~5 wk  ── features presenters pay for
-   ▸ Gate B: ≥ 3 orgs name what they'd pay for
-Phase 4  Team / Enterprise        ongoing
+Phase 4  IT-friendly free tier    ongoing ── signed installers, policy, public security docs
 ```
 
 ---
@@ -44,6 +43,7 @@ Phase 4  Team / Enterprise        ongoing
 | `feat(telemetry): opt-in anonymous metrics + crash reports` (P1-10) | First-run consent screen. Events cover pairing, mode and failure reasons, with no content. A public schema is in `docs/telemetry.md`. |
 | `perf(presenter): persistent osascript bridge on macOS` (P1-8) | CPU use while presenting drops by at least 50%. |
 | Landing page plus docs site | Covers the value proposition, 30-second demo video, download, security page and pricing waitlist (feeds Gate A). |
+| `chore(release): stop shipping Linux builds` (P1-9) | Linux returns only with a LibreOffice Impress driver. Until then a Linux release that can't control any presentation app costs trust. |
 | **Launch:** Show HN, Product Hunt, r/powerpoint, speaker communities | Tracks MAU and waitlist count. |
 
 ## Phase 2: DeckTap Relay (P0-5)
@@ -74,6 +74,8 @@ A **blind rendezvous relay** that forwards opaque frames between the host and th
 | PR | Done when |
 |---|---|
 | `feat(license): offline Ed25519 licence keys` | Keys are verified locally, never phoned home. Expiry is respected, with a grace period. `ee/` is under FSL-1.1-MIT. |
+| `feat(license): 14-day local Pro trial` | Every new install gets full Pro for 14 days, with no card or account. Afterwards the Pro features switch off quietly and the free tier is unchanged. |
+| `feat(relay): upgrade prompt at the free relay limit` | Shown at the start of the next session, never during a talk. Offers Pro or LAN mode. |
 | Lemon Squeezy or Paddle store plus a webhook signer | Purchase leads to a signed key by email in under 1 minute. |
 | `feat(ee): encrypted slide thumbnails + next-slide preview` | Thumbnails are exported via the AppleScript/COM `export` command, downscaled, and E2EE-chunked to the phone. |
 | `feat(ee): pacing timer, haptic cues, rehearsal report` | |
@@ -81,12 +83,13 @@ A **blind rendezvous relay** that forwards opaque frames between the host and th
 | `feat(ee): Google Slides browser extension driver` | The basic version ships free (growth). Thumbnails and timer are Pro. |
 | `feat(pointer): Windows overlay` (P1-9) | Free: brings the laser pointer to parity with macOS. |
 
-## Phase 4: Team and Enterprise (after Gate B)
+## Phase 4: IT-friendly free tier (ongoing)
+
+There is no business tier. This work is free and open source, because it lets companies approve DeckTap, and their presenters then buy Pro.
 
 - Signed `.pkg` / `.msi`, MDM configuration profiles, and a `policy.json` (force LAN or a specific relay, disable updates, disable telemetry).
-- Self-hosted relay support package and SLA.
-- A security whitepaper plus an **independent crypto and protocol audit**, for example via OSTIF or a boutique firm (budget $5–15k, possibly OSS-funded).
-- Later, if the events segment validates: a multi-stage **operator console** for AV teams.
+- Self-hosting docs for the relay, with community support only (no SLA).
+- A public security whitepaper plus an **independent crypto and protocol audit**, for example via OSTIF or a boutique firm (budget $5–15k, possibly OSS-funded).
 
 ---
 
