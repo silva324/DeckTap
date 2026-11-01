@@ -64,4 +64,4 @@ The intent has three parts:
 | GitHub stars | 1,000+ |
 | Companies buying 5 or more Pro licences | 5 |
 
-Honest framing: with Pro as the only paid tier, this is a side-income product at these numbers, roughly $5–15k a year. Revenue grows with the number of active presenters, so the plan puts its effort into free-tier reach and gates paid work on a Pro waitlist. See [`03-monetization.md`](03-monetization.md) for details.
+Honest framing: with Pro as the only paid tier, this is a side-income product at these numbers, roughly $5–15k a year. Revenue grows with the number of active presenters, so the plan puts its effort into free-tier reach and gates paid work on a Pro waitlist. See [`03-monetization.md`](03-monetization.md) for details, and [`06-success-plan.md`](06-success-plan.md) for what has to go right.

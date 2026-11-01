@@ -28,7 +28,7 @@ Contributions: DCO for the MIT and AGPL code. A lightweight CLA with **Volaro.ai
 
 | | **Free** (open source) | **Pro** |
 |---|---|---|
-| Price | $0 | **$4/mo · $36/yr · $79 lifetime** (lifetime capped at launch) |
+| Price | $0 | **$39/yr** (headline) · **$89 lifetime** (early buyers only, capped) · $4/mo |
 | Remote, notes, stage cues, pointer, multi-deck | ✅ | ✅ |
 | LAN mode, bring-your-own tunnel | ✅ | ✅ |
 | DeckTap Relay (works on corporate / hotel Wi-Fi) | Fair use (e.g. 10 sessions/mo, 90 min each) | Unlimited, priority regions |
@@ -41,6 +41,10 @@ Contributions: DCO for the MIT and AGPL code. A lightweight CLA with **Volaro.ai
 | Drawing and annotations on slides | n/a | ✅ |
 
 **Price anchors.** A Logitech Spotlight costs about $110–150 one-time, and App Store remote apps are one-time purchases. Presenters dislike subscriptions for a "clicker", so **the yearly plan and a lifetime option should be the headline**, with monthly as the minor option. Pro for a year costs about a third of a hardware clicker.
+
+**14-day Pro trial on every new install.** No card and no account. Every install starts with full Pro, and after 14 days the Pro features switch off quietly while the free tier stays complete. People pay for what they've already used, and next-slide preview and the timer are what they miss most, because PowerPoint's Presenter View has taught them to expect both. The trial is local and offline, like the licence key.
+
+**The relay limit is the upgrade moment.** When a free user reaches the monthly relay limit, show a calm prompt ("Upgrade to keep using the relay, or switch to LAN") at the start of the next session. Never interrupt a talk that's already running.
 
 **Which features go in Pro, and why:** they are things *professionals* notice, and the free tier remains complete without them. The free tier never loses an existing feature.
 
@@ -56,9 +60,11 @@ Contributions: DCO for the MIT and AGPL code. A lightweight CLA with **Volaro.ai
 
 | Scenario | MAU | Paid conversion | ARPU/yr | ARR |
 |---|---|---|---|---|
-| Modest | 5,000 | 2% | $36 | **~$3.6k** |
-| Good | 20,000 | 3% | $36 | **~$21.6k** |
-| Strong | 50,000 | 3% | $36 | **~$54k** |
+| Modest | 5,000 | 2% | $39 | **~$3.9k** |
+| Good | 20,000 | 3% | $39 | **~$23k** |
+| Strong | 50,000 | 3% | $39 | **~$59k** |
+
+Every $100k a year needs about 2,600 paying presenters, which at 2–3% conversion means about 100k active users. The trial is there to push conversion towards the top of that range.
 
 Lifetime licences add a one-off bump at launch but reduce recurring revenue, which is why they're capped.
 
@@ -71,8 +77,10 @@ With Pro as the only paid tier, **revenue scales with the number of active prese
 
 ## Growth levers (free tier)
 
-- **Google Slides via a browser extension** is the biggest reach play: education, Chromebooks and startups. Ship the basic version free and keep thumbnails and timer in Pro.
-- **The pairing page is the ad.** The phone UI shows a subtle "DeckTap by Volaro" to everyone who scans, and stage presenters are very visible.
+- **Search, not spikes.** Show HN and Product Hunt give one spike; lasting growth comes from high-intent searches such as "control PowerPoint from phone", "PowerPoint remote without app" and "presentation clicker app". Build one landing page per query with a 30-second demo, plus YouTube tutorials.
+- **Presenter communities:** Toastmasters (hundreds of thousands of members who present every week), trainers, sales engineers, and teachers (free, but they spread it).
+- **Google Slides via a browser extension** is the biggest reach play: education, Chromebooks and startups. Build it after PowerPoint Pro has paying customers. Ship the basic version free and keep thumbnails and timer in Pro.
+- **Light branding.** The phone UI shows a subtle "DeckTap by Volaro". Only the presenter sees their phone, so this builds recognition rather than reach; don't plan growth around it.
 - Signed builds plus listings in winget, Homebrew and the Mac App Store (if the Apple Events entitlement is approved) remove install friction.
 - **IT-friendly by default.** Free deployment profiles, a policy file and a public security page let companies approve DeckTap, which brings in presenters who then buy Pro.
 - Content: "Present from your phone on corporate Wi-Fi", "Private speaker notes", and comparisons with Logitech Spotlight.
